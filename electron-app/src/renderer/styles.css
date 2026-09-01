@@ -358,6 +358,10 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .thread-status-label { color: var(--text-soft); font-weight: 700; font-size: 13px; }
 .thread-warning, .resume-banner { padding: 10px 14px; color: var(--warning); border-bottom: 1px solid rgba(255,204,102,0.17); background: rgba(255,204,102,0.055); font-size: 13px; }
 .resume-banner { color: var(--idle); display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(93,232,255,0.055); border-bottom-color: rgba(93,232,255,0.17); }
+/* 위 display:flex가 hidden 속성의 기본 display:none을 덮어써서, 이어서
+   대화하기 배너가 숨겨져 있어야 할 때도 계속 보이던 버그 — hidden일 때는
+   다시 확실히 숨긴다. */
+.resume-banner[hidden] { display: none; }
 .conversation { position: relative; z-index: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 .conversation::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(93,232,255,0.03), transparent 12%); }
 .conversation-empty { height: 100%; min-height: 180px; display: grid; place-content: center; justify-items: center; text-align: center; color: var(--text-muted); }
@@ -444,6 +448,122 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .top-status, .preset-row { justify-content: stretch; }
   .preset-btn, .hud-btn, .text-btn, .mode-btn { width: 100%; }
   .mode-toggle { grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
+   IDLE ↔ ACTIVE 전환 — renderer.js가 대화 유무만 판단해서
+   body[data-ui-phase]를 얹어주면, 실제 "코어가 작아지며 옆으로 도킹되고
+   대화창이 그 자리를 넘겨받는" 애니메이션은 전부 여기서 처리한다.
+   비주얼(정확한 크기/여백/색)은 계속 다듬을 부분이라 값들을 변수로 최대한
+   빼뒀다 — 숫자만 바꿔도 전환 폭을 조절할 수 있다.
+   ===================================================================== */
+:root {
+  --idle-stage-row: 280px;   /* IDLE일 때 코어 무대의 높이 */
+  --active-stage-row: 104px; /* ACTIVE일 때(도킹 후) 코어 무대의 높이 */
+  --dock-scale: 0.34;        /* 도킹된 코어의 축소 비율 */
+}
+
+.main {
+  transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body[data-ui-phase="active"] .main {
+  grid-template-rows: auto var(--active-stage-row) minmax(0, 1fr) auto auto;
+}
+
+.stage {
+  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body[data-ui-phase="active"] .stage {
+  padding: 8px 18px;
+}
+
+.stage-header,
+.hud-corner,
+.stage-grid-lines {
+  transition: opacity 0.3s ease;
+}
+body[data-ui-phase="active"] .stage-header,
+body[data-ui-phase="active"] .hud-corner,
+body[data-ui-phase="active"] .stage-grid-lines {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.core-zone {
+  transition: min-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body[data-ui-phase="active"] .core-zone {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  padding-left: 4px;
+}
+
+/* transform: scale()로 축소하면 orbit-a~d 등 안쪽 요소의 px 단위 inset이
+   전부 같은 비율로 줄어들어 비례가 깨지지 않는다(width/height를 직접
+   줄이면 안쪽 고리들끼리 겹쳐버림). 음수 margin으로 축소된 만큼의 레이아웃
+   공간만 되돌려줘서, 옆의 대화창이 그 공간을 자연스럽게 넘겨받는다. */
+.jarvis-ring {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), margin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body[data-ui-phase="active"] .jarvis-ring {
+  transform: scale(var(--dock-scale));
+  margin: -64px;
+}
+body.fullscreen-hud[data-ui-phase="active"] .jarvis-ring,
+body:fullscreen[data-ui-phase="active"] .jarvis-ring {
+  margin: -82px; /* 전체화면에서는 링 기본 크기(240px)가 더 커서 보정값도 커진다 */
+}
+
+.core-caption {
+  transition: opacity 0.3s ease;
+}
+body[data-ui-phase="active"] .core-caption {
+  text-align: left;
+  justify-items: start;
+}
+body[data-ui-phase="active"] .core-caption strong {
+  display: none;
+}
+
+/* 응답이 막 도착한 순간 한 번 반짝 — jarvis-ring에 response 클래스가
+   새로 붙는 순간 자동으로 한 번만 재생된다(무한 반복 아님). */
+@keyframes core-burst {
+  0% { box-shadow: inset 0 0 32px rgba(93, 232, 255, 0.09), 0 0 0 rgba(124, 255, 178, 0); }
+  35% { box-shadow: inset 0 0 32px rgba(124, 255, 178, 0.18), 0 0 60px rgba(124, 255, 178, 0.5); }
+  100% { box-shadow: inset 0 0 32px rgba(93, 232, 255, 0.09), 0 0 0 rgba(124, 255, 178, 0); }
+}
+.jarvis-ring.response::before {
+  animation: core-burst 0.9s ease-out;
+}
+
+/* 대화가 활성화되면 좌우 패널은 살짝 존재감을 낮춰서 시선이 대화창으로
+   가게 하고, 마우스를 올리면 바로 다시 또렷해진다. */
+.sidebar,
+.right-panel {
+  transition: opacity 0.4s ease;
+}
+body[data-ui-phase="active"] .sidebar,
+body[data-ui-phase="active"] .right-panel {
+  opacity: 0.85;
+}
+body[data-ui-phase="active"] .sidebar:hover,
+body[data-ui-phase="active"] .sidebar:focus-within,
+body[data-ui-phase="active"] .right-panel:hover,
+body[data-ui-phase="active"] .right-panel:focus-within {
+  opacity: 1;
+}
+
+/* 배경 홀로그램 레이어의 미세한 마우스 패럴랙스 (renderer.js가
+   --parallax-x/-y를 -1~1 범위로 갱신한다). */
+.radar-glow,
+.ambient-grid {
+  transition: transform 0.3s ease-out;
+  transform: translate(calc(var(--parallax-x, 0) * 6px), calc(var(--parallax-y, 0) * 6px));
 }
 
 body:fullscreen .app,

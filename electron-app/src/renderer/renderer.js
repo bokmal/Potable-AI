@@ -204,6 +204,19 @@ function renderMarkdownLite(text) {
     .join('');
 }
 
+// ===================================================================
+// 화면 단계(IDLE ↔ ACTIVE) — 대화가 없을 땐 AI 코어가 화면 중앙을 크게
+// 차지하고, 첫 메시지가 오가는 순간 코어가 작게 도킹되며 대화창이 그
+// 자리를 넘겨받는다. 실제 전환 애니메이션은 styles.css의
+// body[data-ui-phase] 규칙이 전담하고, 여기서는 "지금 대화 내용이 있는가"
+// 라는 단 하나의 상태만 body에 얹어준다 — addBubble/clearConversation이라는
+// 기존의 단 두 지점에서만 호출되므로 대화가 생기고 사라지는 모든 경로
+// (전송/스레드 보기/새 대화 시작/기록 삭제)에서 자동으로 같이 따라간다.
+// ===================================================================
+function setUiPhase(phase) {
+  document.body.dataset.uiPhase = phase;
+}
+
 function setBubbleContent(contentEl, role, text) {
   contentEl.dataset.raw = text;
   if (role === 'assistant') {
@@ -251,6 +264,7 @@ function addBubble(role, text) {
 
   conversation.appendChild(el);
   conversation.classList.add('has-messages');
+  setUiPhase('active');
   conversation.scrollTop = conversation.scrollHeight;
   return { el, contentEl };
 }
@@ -259,6 +273,7 @@ function clearConversation() {
   // #conversation-empty(빈 상태 안내)는 그대로 두고 말풍선만 지운다.
   conversation.querySelectorAll('.bubble').forEach((el) => el.remove());
   conversation.classList.remove('has-messages');
+  setUiPhase('idle');
 }
 
 // ===================================================================
@@ -978,9 +993,29 @@ updateSystemClock();
 setInterval(updateSystemClock, 30000);
 
 // ===================================================================
+// 배경 패럴랙스 — 마우스가 움직이는 만큼 배경 레이어(.radar-glow/
+// .ambient-grid)가 아주 살짝(최대 몇 px) 따라 움직여서 "홀로그램 공간"
+// 안에 있는 듯한 깊이감을 준다. requestAnimationFrame으로 묶어서
+// mousemove 자체가 렌더링을 막지 않게 한다. 값은 CSS 커스텀 프로퍼티로만
+// 넘기고 실제 움직임(transform)은 styles.css가 담당한다.
+// ===================================================================
+let parallaxFrame = null;
+document.addEventListener('mousemove', (event) => {
+  if (parallaxFrame) return;
+  parallaxFrame = requestAnimationFrame(() => {
+    parallaxFrame = null;
+    const x = (event.clientX / window.innerWidth - 0.5) * 2; // -1..1
+    const y = (event.clientY / window.innerHeight - 0.5) * 2;
+    document.documentElement.style.setProperty('--parallax-x', x.toFixed(3));
+    document.documentElement.style.setProperty('--parallax-y', y.toFixed(3));
+  });
+});
+
+// ===================================================================
 // 초기 로드
 // ===================================================================
 setState('idle');
+setUiPhase('idle');
 (async () => {
   await loadProjects();
   await loadHistory();
