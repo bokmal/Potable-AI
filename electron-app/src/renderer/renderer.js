@@ -1153,3 +1153,361 @@ setUiPhase('idle');
   await loadHistory();
   await refreshThreadStatus();
 })();
+
+// =====================================================================
+// CAELUS CORE / ECHO ENTITY — 파티클 캔버스 (시각효과 전용)
+//
+// #ring 안의 <canvas class="core-canvas">에 그리는 순수 눈요기 코드다.
+// 여기서 하는 일은 딱 두 가지뿐: #ring의 클래스(idle/listening/response/
+// error)를 "읽기만" 해서 파티클 속도/밀도를 바꾸는 것, 그리고 캔버스에
+// 그림을 그리는 것. 위쪽의 setState()/setUiPhase()나 다른 어떤 기능
+// 로직도 호출하거나 바꾸지 않는다 — 전송/취소/프로젝트/설정 버튼 동작에는
+// 전혀 관여하지 않고, 캔버스 자체는 CSS에서 pointer-events:none이라 클릭도
+// 가로채지 않는다.
+// =====================================================================
+(function initCoreParticles() {
+  const canvas = document.querySelector('#ring .core-canvas');
+  if (!canvas || typeof canvas.getContext !== 'function') return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let reduceMotion = reduceMotionQuery ? reduceMotionQuery.matches : false;
+  if (reduceMotionQuery && reduceMotionQuery.addEventListener) {
+    reduceMotionQuery.addEventListener('change', (event) => {
+      reduceMotion = event.matches;
+      if (reduceMotion) drawStatic(readState());
+    });
+  }
+
+  // 색은 하드코딩하지 않고 styles.css의 디자인 토큰(:root)에서 읽는다 —
+  // 테마(다크/라이트) 전환 시 자동으로 맞는 색을 쓰기 위함. data-theme
+  // 속성이 바뀌면 다시 읽는다.
+  let colors = readColors();
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    return {
+      blue: cs.getPropertyValue('--idle').trim() || '#5de8ff',
+      blueBright: cs.getPropertyValue('--accent-2').trim() || '#baffff',
+      echo: cs.getPropertyValue('--echo').trim() || '#ff5c70',
+      echoHot: cs.getPropertyValue('--echo-hot').trim() || '#ff8a5b',
+      error: cs.getPropertyValue('--error').trim() || '#ff647d',
+    };
+  }
+  const themeObserver = new MutationObserver(() => {
+    colors = readColors();
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  let width = 0;
+  let height = 0;
+
+  // 두 코어(파란/주황)의 중심·반경. 캔버스 크기가 바뀔 때(창 크기 변경,
+  // 전체화면 전환)만 다시 계산한다 — IDLE↔ACTIVE 도킹은 #ring 자체에
+  // CSS transform:scale()이 걸리는 것뿐이라 캔버스도 그대로 같이
+  // 줄어들고, 내부 좌표계는 안 건드려도 된다.
+  const blue = { x: 0, y: 0, r: 0 };
+  const orange = { x: 0, y: 0, r: 0 };
+  function layoutCores() {
+    const s = Math.min(width, height);
+    blue.x = width * 0.56;
+    blue.y = height * 0.52;
+    blue.r = s * 0.30;
+    orange.x = width * 0.28;
+    orange.y = height * 0.40;
+    orange.r = s * 0.15;
+  }
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    width = rect.width;
+    height = rect.height;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    layoutCores();
+    if (reduceMotion) drawStatic(readState());
+  }
+
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  // 파란 AI: 크고, 질서정연하고, 안정적으로 순환한다.
+  const BLUE_COUNT = 190;
+  const blueParticles = [];
+  for (let i = 0; i < BLUE_COUNT; i++) {
+    blueParticles.push({
+      angle: rand(0, Math.PI * 2),
+      angleSpeed: rand(0.05, 0.16) * (Math.random() < 0.5 ? -1 : 1),
+      radiusScale: rand(0.35, 1),
+      wobbleFreqA: rand(0.6, 1.4),
+      wobbleFreqB: rand(0.3, 0.9),
+      wobblePhase: rand(0, Math.PI * 2),
+      wobbleAmp: rand(0.04, 0.12),
+      size: rand(0.6, 1.9),
+      alphaBase: rand(0.35, 0.9),
+      twinkleFreq: rand(0.4, 1.1),
+      twinklePhase: rand(0, Math.PI * 2),
+    });
+  }
+
+  // 주황 AI: 더 작고, 불안정하고, 흔들림이 크다 — 파란 AI를 간섭하는 에코.
+  const ORANGE_COUNT = 90;
+  const orangeParticles = [];
+  for (let i = 0; i < ORANGE_COUNT; i++) {
+    orangeParticles.push({
+      angle: rand(0, Math.PI * 2),
+      angleSpeed: rand(0.08, 0.26) * (Math.random() < 0.5 ? -1 : 1),
+      radiusScale: rand(0.4, 1.15),
+      wobbleFreqA: rand(0.8, 2.0),
+      wobbleFreqB: rand(0.5, 1.6),
+      wobblePhase: rand(0, Math.PI * 2),
+      wobbleAmp: rand(0.10, 0.26),
+      size: rand(0.6, 1.7),
+      alphaBase: rand(0.25, 0.75),
+      twinkleFreq: rand(0.8, 2.2),
+      twinklePhase: rand(0, Math.PI * 2),
+    });
+  }
+
+  // 스트림: 두 코어 사이를 오가며 흐르는 점들 — "대화/충돌" 느낌.
+  // idle에서는 거의 쉬고 있다가 listening/error에서 활발해진다.
+  const STREAM_COUNT = 36; // 190+90+36 = 316개, 요청 범위(220~420) 안.
+  const streamParticles = [];
+  function makeStreamParticle() {
+    return {
+      t: -1, // -1이면 대기(비활성) 상태, 0~1이면 이동 중
+      duration: rand(0.9, 1.8),
+      reverse: Math.random() < 0.5, // true면 파란→주황, false면 주황→파란
+      curve: rand(-0.35, 0.35),
+      size: rand(0.7, 1.6),
+      delay: rand(0, 2.2),
+    };
+  }
+  for (let i = 0; i < STREAM_COUNT; i++) streamParticles.push(makeStreamParticle());
+
+  const ring = document.getElementById('ring');
+  function readState() {
+    if (!ring) return 'idle';
+    if (ring.classList.contains('error')) return 'error';
+    if (ring.classList.contains('response')) return 'response';
+    if (ring.classList.contains('listening')) return 'listening';
+    return 'idle';
+  }
+
+  // 상태별 속도/밀도/스트림 파라미터 — setState()가 바꾼 클래스를 읽기만
+  // 한다(쓰지 않음).
+  const STATE_PARAMS = {
+    idle: { speed: 1, pull: 1, orangeJitter: 1, streamSpawn: 0.12 },
+    listening: { speed: 2.3, pull: 0.86, orangeJitter: 1.7, streamSpawn: 3.4 },
+    response: { speed: 1.3, pull: 0.94, orangeJitter: 1.1, streamSpawn: 0.6 },
+    error: { speed: 1.7, pull: 1, orangeJitter: 2.3, streamSpawn: 2.2 },
+  };
+
+  let prevState = readState();
+  let pulseStart = -1; // response로 막 전환된 시각(초) — 한 번만 재생
+  let sparkStart = -1; // error로 막 전환된 시각(초) — 한 번만 재생
+  let elapsed = 0;
+  let lastTime = performance.now();
+
+  function breathingScale() {
+    return 1 + Math.sin(elapsed * 0.62) * 0.035;
+  }
+
+  function particlePos(core, particle, radiusMul) {
+    const wob =
+      1 +
+      Math.sin(elapsed * particle.wobbleFreqA + particle.wobblePhase) * particle.wobbleAmp +
+      Math.sin(elapsed * particle.wobbleFreqB + particle.wobblePhase * 1.7) * particle.wobbleAmp * 0.6;
+    const r = core.r * particle.radiusScale * radiusMul * wob;
+    return { x: core.x + Math.cos(particle.angle) * r, y: core.y + Math.sin(particle.angle) * r };
+  }
+
+  function bezierPoint(a, b, c, t) {
+    const u = 1 - t;
+    return u * u * a + 2 * u * t * b + t * t * c;
+  }
+
+  // 색 문자열(#rrggbb 형태의 CSS 변수 값)에 알파를 입혀 rgba()로 바꾼다.
+  function withAlpha(hex, alpha) {
+    const c = String(hex).trim();
+    if (c[0] === '#') {
+      const n = c.length === 4 ? c.slice(1).split('').map((ch) => ch + ch).join('') : c.slice(1);
+      const r = parseInt(n.slice(0, 2), 16);
+      const g = parseInt(n.slice(2, 4), 16);
+      const b = parseInt(n.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    const m = c.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      const parts = m[1].split(',').map((s) => s.trim());
+      return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+    }
+    return c;
+  }
+
+  function drawDot(x, y, size, alpha, color) {
+    ctx.beginPath();
+    ctx.fillStyle = withAlpha(color, Math.max(0, alpha));
+    ctx.arc(x, y, Math.max(0.4, size), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawGlow(x, y, r, color, alpha) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, withAlpha(color, alpha));
+    g.addColorStop(1, withAlpha(color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function updateStreams(dt, params) {
+    streamParticles.forEach((p) => {
+      if (p.t < 0) {
+        p.delay -= dt * params.speed;
+        if (p.delay <= 0 && Math.random() < params.streamSpawn * dt) p.t = 0;
+        return;
+      }
+      p.t += (dt * params.speed) / p.duration;
+      if (p.t >= 1) {
+        Object.assign(p, makeStreamParticle());
+        p.delay = rand(0.05, 1.4) / Math.max(0.3, params.streamSpawn);
+      }
+    });
+  }
+
+  function render(state, params) {
+    ctx.clearRect(0, 0, width, height);
+
+    // 코어당 배경 글로우 하나씩 — 파티클 개별 shadowBlur 대신 그라디언트
+    // 한 번으로 처리해 성능을 아낀다.
+    drawGlow(blue.x, blue.y, blue.r * 1.5, colors.blue, state === 'listening' ? 0.16 : 0.11);
+    drawGlow(orange.x, orange.y, orange.r * 1.8, colors.echo, state === 'error' ? 0.16 : 0.08);
+
+    const breathe = breathingScale();
+
+    blueParticles.forEach((p) => {
+      p.angle += p.angleSpeed * 0.016 * params.speed;
+      const { x, y } = particlePos(blue, p, params.pull * breathe);
+      const twinkle = 0.6 + Math.sin(elapsed * p.twinkleFreq + p.twinklePhase) * 0.4;
+      drawDot(x, y, p.size, p.alphaBase * twinkle, colors.blue);
+    });
+
+    orangeParticles.forEach((p) => {
+      p.angle += p.angleSpeed * 0.016 * params.speed * (0.7 + params.orangeJitter * 0.3);
+      const extraWobble = 1 + Math.sin(elapsed * 3.1 + p.twinklePhase) * 0.05 * params.orangeJitter;
+      const { x, y } = particlePos(orange, p, extraWobble);
+      const twinkle = 0.5 + Math.sin(elapsed * p.twinkleFreq * params.orangeJitter + p.twinklePhase) * 0.5;
+      drawDot(x, y, p.size, p.alphaBase * twinkle, state === 'error' ? colors.error : colors.echo);
+    });
+
+    // 두 코어 사이 스트림 — 대부분은 점, 아주 일부(약 5~10%)만 옅은 연결선.
+    let lineBudget = Math.max(1, Math.round(STREAM_COUNT * 0.08));
+    streamParticles.forEach((p) => {
+      if (p.t < 0 || p.t > 1) return;
+      const from = p.reverse ? blue : orange;
+      const to = p.reverse ? orange : blue;
+      const mx = (from.x + to.x) / 2 + (to.y - from.y) * p.curve;
+      const my = (from.y + to.y) / 2 - (to.x - from.x) * p.curve;
+      const x = bezierPoint(from.x, mx, to.x, p.t);
+      const y = bezierPoint(from.y, my, to.y, p.t);
+      const fade = p.t < 0.15 ? p.t / 0.15 : p.t > 0.8 ? (1 - p.t) / 0.2 : 1;
+      const color = state === 'error' ? colors.error : colors.echoHot;
+
+      if (lineBudget > 0 && p.curve > -0.05 && p.curve < 0.05) {
+        ctx.strokeStyle = withAlpha(colors.blue, 0.06 * fade);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.quadraticCurveTo(mx, my, to.x, to.y);
+        ctx.stroke();
+        lineBudget -= 1;
+      }
+
+      drawDot(x, y, p.size, 0.85 * fade, color);
+      if (p.t > 0.92 && to === blue) drawDot(x, y, p.size * 2.2, 0.18 * fade, colors.blueBright);
+    });
+
+    // response: 파란 코어에서 부드러운 pulse가 한 번 퍼진다.
+    if (pulseStart >= 0) {
+      const pt = elapsed - pulseStart;
+      if (pt < 1.1) {
+        const pr = blue.r * (0.3 + pt * 1.3);
+        ctx.strokeStyle = withAlpha(colors.blueBright, Math.max(0, 0.32 * (1 - pt / 1.1)));
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(blue.x, blue.y, pr, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        pulseStart = -1;
+      }
+    }
+
+    // error: 아주 짧은 경고성 스파크만(화면 전체를 붉게 물들이지 않는다).
+    if (sparkStart >= 0) {
+      const st = elapsed - sparkStart;
+      if (st < 0.6) {
+        const sparkCount = 5;
+        for (let i = 0; i < sparkCount; i++) {
+          const a = (i / sparkCount) * Math.PI * 2 + elapsed * 2;
+          const sr = orange.r * (0.8 + Math.sin(elapsed * 9 + i) * 0.15);
+          drawDot(
+            orange.x + Math.cos(a) * sr,
+            orange.y + Math.sin(a) * sr,
+            1.6,
+            Math.max(0, 0.5 * (1 - st / 0.6)),
+            colors.error
+          );
+        }
+      } else {
+        sparkStart = -1;
+      }
+    }
+  }
+
+  // prefers-reduced-motion: 파티클을 홈 위치에 고정해 한 번만 그린다(계속
+  // requestAnimationFrame을 돌리지 않음).
+  function drawStatic(state) {
+    ctx.clearRect(0, 0, width, height);
+    drawGlow(blue.x, blue.y, blue.r * 1.4, colors.blue, 0.1);
+    drawGlow(orange.x, orange.y, orange.r * 1.6, colors.echo, state === 'error' ? 0.14 : 0.07);
+    blueParticles.forEach((p) => {
+      const { x, y } = particlePos(blue, p, 1);
+      drawDot(x, y, p.size, p.alphaBase * 0.8, colors.blue);
+    });
+    orangeParticles.forEach((p) => {
+      const { x, y } = particlePos(orange, p, 1);
+      drawDot(x, y, p.size, p.alphaBase * 0.7, state === 'error' ? colors.error : colors.echo);
+    });
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (reduceMotion) return; // 정적 프레임은 상태 변화/리사이즈 때만 다시 그림
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    elapsed += dt;
+
+    const state = readState();
+    if (state !== prevState) {
+      if (state === 'response') pulseStart = elapsed;
+      if (state === 'error') sparkStart = elapsed;
+      prevState = state;
+    }
+    const params = STATE_PARAMS[state] || STATE_PARAMS.idle;
+    updateStreams(dt, params);
+    render(state, params);
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  document.addEventListener('fullscreenchange', resizeCanvas);
+
+  resizeCanvas();
+  if (reduceMotion) drawStatic(readState());
+  requestAnimationFrame(frame);
+})();

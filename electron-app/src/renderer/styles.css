@@ -382,12 +382,14 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .settings-divider { height: 1px; margin: 4px; background: var(--line); }
 .settings-note { color: var(--text-muted); font-size: 12px; line-height: 1.6; padding: 2px 2px 0; }
 
-/* CAELUS CORE / ECHO ENTITY — 코어 무대는 카드가 아니다(테두리/HUD
-   브래킷/헤더 라벨 없음), 배경 위에 코어가 그냥 떠 있다. 코어 자체는
-   halo/orbit 레이어 위에 붉은/앰버 계열의 "ECHO" 간섭 레이어(echo-entity/
-   echo-fragments/signal-thread)를 얇게 겹쳐서, 시안 코어에 다른 개체가
-   미세하게 간섭하는 듯한 존재감을 준다 — 색은 전체의 10~15% 수준으로만
-   섞는다(불투명도를 낮게 유지). */
+/* CAELUS CORE / ECHO ENTITY (particle canvas) — 코어 무대는 카드가
+   아니다(테두리/HUD 브래킷/헤더 라벨 없음), 배경 위에 코어가 그냥 떠
+   있다. 이전엔 CSS로 그린 halo/orbit/echo 링·선 레이어였지만, 이제는
+   "선으로 그린 AI"가 아니라 "수많은 파티클이 모여 보이는 AI"가 목표라
+   #ring 안은 <canvas>(.core-canvas, renderer.js 맨 아래 파티클 코드가
+   그린다) 하나만 남긴다. width/height/필터 등 #ring 자체의 크기·글로우는
+   기존과 동일하게 유지해서, IDLE↔ACTIVE 도킹 전환에 맞춰 이미 계산해둔
+   margin/stage-row 값들이 그대로 맞는다. */
 .stage {
   padding: 16px;
   overflow: hidden;
@@ -410,351 +412,17 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   display: grid;
   place-items: center;
   color: var(--idle);
-  filter:
-    drop-shadow(0 0 28px rgba(93, 232, 255, 0.22))
-    drop-shadow(0 0 70px rgba(93, 232, 255, 0.10));
   isolation: isolate;
 }
 
-.core-entity {
+.core-canvas {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  animation: entity-breathe 5.8s ease-in-out infinite;
-}
-
-.jarvis-ring::before,
-.jarvis-ring::after,
-.core-halo,
-.ring-orbit,
-.ring-inner,
-.ring-core,
-.echo-entity,
-.signal-thread {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-}
-
-.jarvis-ring::before {
-  inset: -8px;
-  border: 1px solid rgba(93, 232, 255, 0.22);
-  background:
-    radial-gradient(circle at 50% 50%, rgba(93, 232, 255, 0.11), transparent 38%),
-    conic-gradient(
-      from 120deg,
-      transparent 0deg,
-      rgba(93, 232, 255, 0.22) 24deg,
-      transparent 55deg,
-      transparent 180deg,
-      rgba(255, 92, 112, 0.13) 220deg,
-      transparent 255deg,
-      transparent 360deg
-    );
-  box-shadow:
-    inset 0 0 44px rgba(93, 232, 255, 0.08),
-    0 0 52px rgba(93, 232, 255, 0.11);
-  opacity: 0.95;
-}
-
-.jarvis-ring::after {
-  inset: 18px;
-  border: 1px dashed rgba(93, 232, 255, 0.34);
-  box-shadow: inset 0 0 24px rgba(93, 232, 255, 0.08);
-  animation: spin 26s linear infinite reverse;
-}
-
-.core-halo {
-  pointer-events: none;
-  mix-blend-mode: screen;
-}
-
-.halo-outer {
-  inset: -20px;
-  border: 1px solid rgba(93, 232, 255, 0.10);
-  background:
-    conic-gradient(
-      from 0deg,
-      transparent 0 28deg,
-      rgba(93, 232, 255, 0.18) 31deg 36deg,
-      transparent 39deg 150deg,
-      rgba(255, 92, 112, 0.12) 154deg 160deg,
-      transparent 164deg 360deg
-    );
-  animation: spin 38s linear infinite;
-  opacity: 0.65;
-}
-
-.halo-mid {
-  inset: 8px;
-  border: 1px solid rgba(93, 232, 255, 0.16);
-  background:
-    conic-gradient(
-      from 180deg,
-      transparent 0 52deg,
-      rgba(93, 232, 255, 0.24) 57deg 64deg,
-      transparent 68deg 210deg,
-      rgba(255, 138, 91, 0.13) 218deg 226deg,
-      transparent 232deg 360deg
-    );
-  animation: spin 19s linear infinite reverse;
-}
-
-.halo-inner {
-  inset: 50px;
-  border: 1px solid rgba(186, 255, 255, 0.24);
-  background:
-    radial-gradient(circle, rgba(186, 255, 255, 0.08), transparent 56%),
-    conic-gradient(
-      from 45deg,
-      rgba(93, 232, 255, 0.26),
-      transparent 18%,
-      transparent 64%,
-      rgba(93, 232, 255, 0.20),
-      transparent 80%
-    );
-  animation: spin 12s linear infinite;
-}
-
-.ring-orbit {
-  border-style: solid;
-  border-color: transparent;
-}
-
-.orbit-a {
-  inset: 24px;
-  border-width: 2px;
-  border-top-color: currentColor;
-  border-right-color: rgba(93, 232, 255, 0.35);
-  border-bottom-color: rgba(93, 232, 255, 0.08);
-  animation: spin 8.5s linear infinite;
-}
-
-.orbit-b {
-  inset: 47px;
-  border-width: 1px;
-  border-left-color: rgba(186, 255, 255, 0.72);
-  border-bottom-color: rgba(93, 232, 255, 0.28);
-  animation: spin 13.5s linear infinite reverse;
-}
-
-.orbit-c {
-  inset: 72px;
-  border-width: 1px;
-  border-top-color: rgba(93, 232, 255, 0.76);
-  border-bottom-color: rgba(93, 232, 255, 0.70);
-  animation: spin 6.8s linear infinite;
-}
-
-.orbit-d {
-  inset: 3px;
-  border-width: 1px;
-  border-left-color: rgba(255, 138, 91, 0.18);
-  border-right-color: rgba(93, 232, 255, 0.18);
-  animation: spin 31s linear infinite;
-}
-
-.echo-entity {
-  opacity: 0.28;
-  border: 1px solid var(--echo-line);
-  transform-origin: center;
-  filter: drop-shadow(0 0 18px rgba(255, 92, 112, 0.12));
-}
-
-.echo-a {
-  width: 148px;
-  height: 88px;
-  transform: rotate(-24deg) translateX(34px);
-  border-left-color: transparent;
-  border-bottom-color: transparent;
-  animation: echo-skew 4.8s ease-in-out infinite;
-}
-
-.echo-b {
-  width: 116px;
-  height: 164px;
-  transform: rotate(38deg) translateX(-26px);
-  border-right-color: transparent;
-  border-top-color: transparent;
-  animation: echo-skew 5.4s ease-in-out infinite reverse;
-}
-
-.echo-fragments {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.echo-fragments span {
-  position: absolute;
-  width: 34px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--echo-hot), transparent);
-  opacity: 0.16;
-  box-shadow: 0 0 16px rgba(255, 92, 112, 0.22);
-  animation: echo-flicker 3.2s ease-in-out infinite;
-}
-
-.echo-fragments span:nth-child(1) {
-  left: 18px;
-  top: 68px;
-  transform: rotate(18deg);
-}
-
-.echo-fragments span:nth-child(2) {
-  right: 12px;
-  top: 74px;
-  transform: rotate(-16deg);
-  animation-delay: .3s;
-}
-
-.echo-fragments span:nth-child(3) {
-  right: 36px;
-  bottom: 48px;
-  transform: rotate(24deg);
-  animation-delay: .6s;
-}
-
-.echo-fragments span:nth-child(4) {
-  left: 46px;
-  bottom: 34px;
-  transform: rotate(-30deg);
-  animation-delay: .9s;
-}
-
-.echo-fragments span:nth-child(5) {
-  left: 50%;
-  top: 13px;
-  width: 22px;
-  transform: rotate(82deg);
-  animation-delay: 1.2s;
-}
-
-.echo-fragments span:nth-child(6) {
-  left: 50%;
-  bottom: 8px;
-  width: 26px;
-  transform: rotate(98deg);
-  animation-delay: 1.5s;
-}
-
-.signal-thread {
-  width: 150px;
-  height: 1px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(93, 232, 255, 0.35),
-    rgba(255, 138, 91, 0.22),
-    transparent
-  );
-  opacity: 0.24;
-  transform-origin: center;
-  animation: thread-pulse 3.6s ease-in-out infinite;
-}
-
-.thread-a {
-  --thread-rotate: 18deg;
-  transform: rotate(18deg);
-}
-
-.thread-b {
-  --thread-rotate: 112deg;
-  transform: rotate(112deg);
-  animation-delay: .5s;
-}
-
-.thread-c {
-  --thread-rotate: -42deg;
-  transform: rotate(-42deg);
-  animation-delay: 1s;
-}
-
-.ring-inner {
-  width: 78px;
-  height: 78px;
-  background:
-    radial-gradient(
-      circle,
-      rgba(255, 255, 255, 0.42),
-      rgba(186, 255, 255, 0.22) 19%,
-      rgba(93, 232, 255, 0.08) 48%,
-      transparent 52%
-    ),
-    conic-gradient(
-      from 0deg,
-      rgba(93, 232, 255, 0.23),
-      transparent 20%,
-      rgba(255, 138, 91, 0.10),
-      transparent 60%,
-      rgba(93, 232, 255, 0.20)
-    );
-  border: 1px solid rgba(93, 232, 255, 0.34);
-  box-shadow:
-    inset 0 0 24px rgba(93, 232, 255, 0.12),
-    0 0 28px rgba(93, 232, 255, 0.10);
-}
-
-.ring-core {
-  width: 24px;
-  height: 24px;
-  background:
-    radial-gradient(
-      circle,
-      #ffffff 0 18%,
-      var(--accent-2) 28%,
-      rgba(93, 232, 255, 0.34) 58%,
-      transparent 72%
-    );
-  box-shadow:
-    0 0 16px rgba(255, 255, 255, 0.60),
-    0 0 34px currentColor,
-    0 0 62px rgba(93, 232, 255, 0.24);
-  animation: breathe 3.4s ease-in-out infinite;
-}
-
-.ring-bars {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  gap: 5px;
-  height: 52px;
-  align-items: center;
-  opacity: 0.76;
-}
-
-.ring-bars span {
+  width: 100%;
+  height: 100%;
   display: block;
-  width: 3px;
-  height: 18px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, transparent, currentColor, transparent);
-  opacity: 0.55;
-  animation: bars 1.6s ease-in-out infinite;
-}
-
-.ring-bars span:nth-child(2) {
-  animation-delay: .1s;
-}
-
-.ring-bars span:nth-child(3) {
-  animation-delay: .2s;
-  height: 30px;
-}
-
-.ring-bars span:nth-child(4) {
-  animation-delay: .3s;
-}
-
-.ring-bars span:nth-child(5) {
-  animation-delay: .4s;
+  pointer-events: none;
+  filter: drop-shadow(0 0 30px rgba(93, 232, 255, 0.14));
 }
 
 .jarvis-ring.listening,
@@ -764,41 +432,6 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 .jarvis-ring.error {
   color: var(--error);
-}
-
-.jarvis-ring.listening .orbit-a,
-.jarvis-ring.listening .orbit-b,
-.jarvis-ring.listening .halo-inner {
-  animation-duration: 2.1s;
-}
-
-.jarvis-ring.listening .echo-entity,
-.jarvis-ring.listening .echo-fragments span,
-.jarvis-ring.error .echo-entity,
-.jarvis-ring.error .echo-fragments span {
-  opacity: 0.56;
-}
-
-.jarvis-ring.response .ring-core {
-  animation-duration: 0.85s;
-}
-
-.jarvis-ring.error::before {
-  border-color: rgba(255, 100, 125, 0.36);
-  box-shadow:
-    inset 0 0 38px rgba(255, 100, 125, 0.10),
-    0 0 42px rgba(255, 100, 125, 0.15);
-}
-
-.jarvis-ring.error .signal-thread {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 92, 112, 0.42),
-    rgba(255, 138, 91, 0.34),
-    transparent
-  );
-  opacity: 0.45;
 }
 
 .core-caption {
@@ -892,57 +525,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .file-tree .indent { padding-left: 14px; color: var(--text-muted); }
 .protocol-panel p { color: var(--text-muted); font-size: 13px; line-height: 1.65; margin: 12px 0 0; }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes breathe { 0%, 100% { transform: scale(.88); opacity: .72; } 50% { transform: scale(1.15); opacity: 1; } }
-@keyframes bars { 0%, 100% { transform: scaleY(.48); opacity: .28; } 50% { transform: scaleY(1.1); opacity: .76; } }
-
-@keyframes entity-breathe {
-  0%, 100% {
-    transform: scale(0.985);
-    opacity: 0.92;
-  }
-  50% {
-    transform: scale(1.015);
-    opacity: 1;
-  }
-}
-
-@keyframes echo-skew {
-  0%, 100% {
-    opacity: 0.20;
-    filter: drop-shadow(0 0 12px rgba(255, 92, 112, 0.08));
-  }
-  45% {
-    opacity: 0.42;
-    filter: drop-shadow(0 0 26px rgba(255, 92, 112, 0.18));
-  }
-  70% {
-    opacity: 0.26;
-  }
-}
-
-@keyframes echo-flicker {
-  0%, 100% {
-    opacity: 0.10;
-  }
-  38% {
-    opacity: 0.36;
-  }
-  62% {
-    opacity: 0.18;
-  }
-}
-
-@keyframes thread-pulse {
-  0%, 100% {
-    opacity: 0.14;
-    transform: rotate(var(--thread-rotate, 0deg)) scaleX(0.82);
-  }
-  50% {
-    opacity: 0.36;
-    transform: rotate(var(--thread-rotate, 0deg)) scaleX(1.12);
-  }
-}
+/* 코어 내부의 spin/breathe/echo류 애니메이션은 이제 전부 캔버스 파티클
+   (renderer.js 맨 아래)이 담당한다 — CSS keyframes는 더 이상 없음. */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
@@ -1001,10 +585,10 @@ body[data-ui-phase="active"] .core-zone {
   padding-left: 4px;
 }
 
-/* transform: scale()로 축소하면 orbit-a~d 등 안쪽 요소의 px 단위 inset이
-   전부 같은 비율로 줄어들어 비례가 깨지지 않는다(width/height를 직접
-   줄이면 안쪽 고리들끼리 겹쳐버림). 음수 margin으로 축소된 만큼의 레이아웃
-   공간만 되돌려줘서, 옆의 대화창이 그 공간을 자연스럽게 넘겨받는다. */
+/* transform: scale()로 #ring을 축소하면 그 안의 <canvas>도 같은 비율로
+   같이 줄어든다(캔버스 내부 좌표계는 그대로 둬도 됨). 음수 margin으로
+   축소된 만큼의 레이아웃 공간만 되돌려줘서, 옆의 대화창이 그 공간을
+   자연스럽게 넘겨받는다. */
 .jarvis-ring {
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), margin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1030,16 +614,8 @@ body[data-ui-phase="active"] .core-caption strong {
   display: none;
 }
 
-/* 응답이 막 도착한 순간 한 번 반짝 — jarvis-ring에 response 클래스가
-   새로 붙는 순간 자동으로 한 번만 재생된다(무한 반복 아님). */
-@keyframes core-burst {
-  0% { box-shadow: inset 0 0 32px rgba(93, 232, 255, 0.09), 0 0 0 rgba(124, 255, 178, 0); }
-  35% { box-shadow: inset 0 0 32px rgba(124, 255, 178, 0.18), 0 0 60px rgba(124, 255, 178, 0.5); }
-  100% { box-shadow: inset 0 0 32px rgba(93, 232, 255, 0.09), 0 0 0 rgba(124, 255, 178, 0); }
-}
-.jarvis-ring.response::before {
-  animation: core-burst 0.9s ease-out;
-}
+/* 응답 도착 시 "한 번 반짝"이는 연출은 이제 캔버스 파티클 쪽 pulse
+   효과(renderer.js)가 담당한다 — CSS pseudo-element 버스트는 제거. */
 
 /* 대화가 활성화된 동안 열려 있는 창(플로팅 패널)이 있다면 살짝 존재감을
    낮춰서 시선이 대화창으로 가게 하고, 마우스를 올리면 바로 다시
@@ -1084,9 +660,5 @@ body.fullscreen-hud .jarvis-ring,
 body:fullscreen .jarvis-ring { width: 286px; height: 286px; }
 body.fullscreen-hud .core-zone,
 body:fullscreen .core-zone { min-height: 330px; }
-body.fullscreen-hud .echo-entity,
-body:fullscreen .echo-entity { opacity: 0.42; }
-body.fullscreen-hud .signal-thread,
-body:fullscreen .signal-thread { opacity: 0.36; }
 body.fullscreen-hud .core-caption strong,
 body:fullscreen .core-caption strong { font-size: 22px; }
