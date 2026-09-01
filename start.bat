@@ -80,12 +80,21 @@ if exist "node_modules\.bin\electron.cmd" (
         echo        electron-app 폴더에서 "npm install" 을 다시 실행해보세요.
         echo.
     )
-    call node_modules\.bin\electron.cmd .
-    if !errorlevel! neq 0 (
+    call :LaunchElectron
+    if !CAELUS_EXIT! neq 0 (
         echo.
-        echo [오류] CAELUS 앱이 오류 코드 !errorlevel! 로 종료되었습니다.
-        echo        위 로그를 확인해주세요.
-        pause
+        echo [경고] CAELUS 앱이 비정상 종료됐습니다 ^(코드 !CAELUS_EXIT!^).
+        echo        USB 접촉 불량 등 일시적인 문제였을 수 있습니다. 2초 후 한 번 더 시도합니다...
+        timeout /t 2 /nobreak >nul
+        call :LaunchElectron
+        if !CAELUS_EXIT! neq 0 (
+            echo.
+            echo [오류] CAELUS 앱이 다시 오류 코드 !CAELUS_EXIT! 로 종료되었습니다.
+            echo        USB 케이블/포트 연결 상태를 확인해주세요.
+            echo        계속되면 electron-app\node_modules\electron\dist\electron.exe
+            echo        가 있는지, 백신이 차단하고 있지는 않은지 확인해주세요.
+            pause
+        )
     )
 ) else (
     echo [안내] electron-app 의 의존성이 아직 설치되지 않았습니다.
@@ -99,3 +108,10 @@ if exist "node_modules\.bin\electron.cmd" (
 
 popd
 endlocal
+exit /b 0
+
+REM --- 서브루틴: Electron 실행, 종료 코드를 CAELUS_EXIT 에 남긴다 ---
+:LaunchElectron
+call node_modules\.bin\electron.cmd .
+set "CAELUS_EXIT=%errorlevel%"
+exit /b 0

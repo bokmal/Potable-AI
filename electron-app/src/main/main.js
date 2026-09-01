@@ -2,10 +2,36 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { ClaudeBridge } = require('./claudeBridge');
 const { Store } = require('./store');
+const { guardCredentials } = require('./credentialsGuard');
+
+// 같은 PC에서 CAELUS가 중복 실행되는 것을 막는다. 자동실행 트리거가 걸린
+// PC에서, 이전 창이 완전히 안 죽은 채로 USB가 재삽입되면 트리거가 또
+// 발동해 두 번째 인스턴스가 뜰 수 있다 — 두 프로세스가 USB의 같은 JSON
+// 저장소 파일에 동시에 쓰면 원자적 쓰기로도 못 막는 경합(레이스)이 생기므로
+// 아예 두 번째 인스턴스를 못 뜨게 막는다. 이 락은 그 PC의 실제 Windows
+// 프로필에 저장되므로(USB 안이 아님), PC마다 독립적으로 동작한다 — 여러
+// PC에서 각자 CAELUS를 쓰는 정상적인 사용은 막지 않는다.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+  return;
+}
 
 let mainWindow;
 const claude = new ClaudeBridge();
 const store = new Store();
+
+// Claude Code CLI 로그인 세션이 USB가 뽑히는 도중 손상됐을 수 있으니, 매
+// 실행마다 확인/백업한다 (자세한 설명은 credentialsGuard.js 참고).
+guardCredentials(process.env.CAELUS_HOME);
+
+app.on('second-instance', () => {
+  // 이미 떠 있는 창을 앞으로 가져온다 — 두 번째 실행 시도는 조용히 무시.
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({

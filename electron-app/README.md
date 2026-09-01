@@ -9,10 +9,11 @@ Claude Code CLI가 담당한다.
 ```
 src/
 ├── main/
-│   ├── main.js          BrowserWindow 생성, IPC 핸들러
-│   ├── claudeBridge.js   Claude Code CLI child_process 래퍼 (--print 모드)
-│   ├── store.js          작업 기록(SESSION/TASK/LOG) JSON 저장소
-│   └── preload.js        contextBridge로 렌더러에 안전하게 API 노출
+│   ├── main.js             BrowserWindow 생성, 단일 인스턴스 락, IPC 핸들러
+│   ├── claudeBridge.js      Claude Code CLI child_process 래퍼 (--print 모드)
+│   ├── store.js             작업 기록(SESSION/TASK/LOG) JSON 저장소 (원자적 쓰기)
+│   ├── credentialsGuard.js  CLI 로그인 토큰 백업/자동 복구
+│   └── preload.js           contextBridge로 렌더러에 안전하게 API 노출
 └── renderer/
     ├── index.html        사이드바 + 원형 상태 인디케이터 + 대화창 + 입력바
     ├── styles.css         JARVIS 스타일 네온 팔레트/글로우 이펙트
@@ -59,6 +60,27 @@ npm start
 | `listening` | 황색 `#f2c34d` | 명령 전송 후 CLI 응답 대기 중 |
 | `response` | 초록 `#6fd68a` | CLI 응답 수신 완료 |
 | `error` | 적색 `#e05c5c` | CLI 실행 실패/비정상 종료 |
+
+## USB 안전성 (예고 없이 뽑히는 것에 대한 대비)
+
+USB는 언제든 예고 없이 뽑힐 수 있는 매체라는 전제로 아래 세 가지를 넣어뒀다.
+자세한 배경은 `README.md`의 "알려진 제약" 참고.
+
+1. **작업 기록 손상 방지** — `store.js`가 파일을 직접 덮어쓰지 않고 임시
+   파일 + rename으로 원자적으로 쓴다. 혹시 손상된 파일을 만나도 조용히
+   버리지 않고 `.corrupted-<timestamp>.bak`으로 백업한다.
+2. **로그인 세션 손상 대비** — `credentialsGuard.js`가 매 실행마다 CLI의
+   로그인 토큰이 정상이면 백업하고, 손상돼 있으면 백업에서 자동 복구한다.
+3. **중복 실행 방지** — `main.js`가 `app.requestSingleInstanceLock()`으로
+   같은 PC에서 CAELUS가 두 번 뜨는 것을 막는다(자동실행 트리거가 걸린
+   PC에서, 죽지 않은 이전 창이 있는데 USB가 재삽입되는 경우 대비). 이
+   락은 USB가 아니라 그 PC의 실제 Windows 프로필에 저장되므로, 여러
+   PC에서 각자 CAELUS를 쓰는 정상적인 사용에는 영향을 주지 않는다.
+
+앱이 완전히 로딩되기 전(Electron이 자신의 JS 파일을 USB에서 읽는 도중)에
+USB가 뽑히는 경우는 그 시점에 아직 JS 코드가 안 떠 있어 앱 내부에서 막을
+수 없다 — `start.bat`이 비정상 종료를 감지해 한 번 자동 재시도하고, 그래도
+실패하면 안내 메시지를 띄우는 것으로 대응한다.
 
 ## 알려진 제약
 
