@@ -597,12 +597,25 @@ async function viewThread(project, threadEntry) {
   }
 
   viewingThread = { project, threadId: threadEntry.threadId };
+
+  // 스레드를 클릭해서 보는 순간, 화면에 보이는 프로젝트가 곧 "지금 입력창이
+  // 보낼 대상"이 되도록 activeProject를 항상 그 프로젝트로 맞춘다. 이걸 안
+  // 하면 화면은 A 프로젝트 대화를 보여주는데 실제 전송 대상은 예전에
+  // 마지막으로 활성화됐던(또는 기본값인 general) 다른 프로젝트로 가는
+  // 어긋남이 생긴다 — 사용자에게는 "프로젝트 구분 없이 전부 하나로
+  // 기억되는 것처럼" 보이는 버그로 나타난다.
+  activeProject = project;
+
   // threadId가 없는 옛 기록(스레드 개념이 생기기 전 1회성 작업)은 애초에
   // "이어갈" 스레드가 없으므로 배너를 보여주지 않는다. threadId가 있으면,
   // 지금 그 프로젝트의 활성 스레드와 같은 걸 보고 있는 게 아닐 때만
   // "이어서 대화하기" 배너를 보여준다(= 과거 기록을 훑어보는 중이라는 뜻).
+  // 배너가 안 떠 있다는 건 지금 보고 있는 스레드가 곧 그 프로젝트의
+  // 실제 활성 스레드라는 뜻이므로, activeThreads 포인터는 안 건드려도
+  // 이미 맞다(그래서 여기서 setActiveThread를 다시 부를 필요는 없다).
   if (!threadEntry.threadId) {
     hideResumeBanner();
+    await refreshThreadStatus();
     return;
   }
   const info = await window.caelus.getThreadInfo(project);
@@ -611,6 +624,7 @@ async function viewThread(project, threadEntry) {
   } else {
     showResumeBanner();
   }
+  await refreshThreadStatus();
 }
 
 function showResumeBanner() {
