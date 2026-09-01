@@ -224,6 +224,42 @@ body {
   color: #ffb3b3;
 }
 
+/* --- 응답 모드 전환 (대화 / 코딩) --- */
+.mode-toggle {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mode-btn {
+  flex: 1;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.mode-btn:hover {
+  border-color: var(--idle-soft);
+}
+.mode-btn.active {
+  border-color: var(--idle);
+  color: var(--text);
+  box-shadow: 0 0 8px rgba(79, 209, 224, 0.25);
+}
+.mode-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* --- 하단: 명령 입력 바 --- */
 .command-bar {
   width: 100%;

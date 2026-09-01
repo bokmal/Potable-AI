@@ -74,12 +74,13 @@ ipcMain.handle('caelus:get-history', () => {
 
 // --- IPC: 명령 전송 → Claude Code CLI 호출 ---
 // UI 상태 전이: listening(입력 처리 중) → response(완료) / error(오류)
-ipcMain.handle('caelus:send-command', async (event, text) => {
-  const task = store.createTask(text);
+// mode: 'chat'(기본, 대화체) | 'code'(CLI 기본 동작 — 신중한 코딩 에이전트)
+ipcMain.handle('caelus:send-command', async (event, text, mode) => {
+  const task = store.createTask(text, mode);
   send(event, 'caelus:status', { state: 'listening', taskId: task.task_id });
 
   try {
-    const responseText = await claude.send(text, (chunk) => {
+    const responseText = await claude.send(text, mode, (chunk) => {
       send(event, 'caelus:stream', { taskId: task.task_id, chunk });
     });
 

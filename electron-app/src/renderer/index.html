@@ -26,6 +26,15 @@
 
       <div id="conversation" class="conversation"></div>
 
+      <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
+        <button type="button" class="mode-btn active" data-mode="chat">
+          대화 <span class="mode-hint">일반 채팅처럼 답함</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="code">
+          코딩 <span class="mode-hint">파일 작업 시 신중하게 확인</span>
+        </button>
+      </div>
+
       <form id="command-form" class="command-bar">
         <input id="command-input" class="command-input" type="text"
                placeholder="명령을 입력하세요..." autocomplete="off" />

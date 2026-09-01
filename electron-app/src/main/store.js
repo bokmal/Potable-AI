@@ -79,11 +79,12 @@ class Store {
     fs.renameSync(tmpPath, this.filePath);
   }
 
-  createTask(title) {
+  createTask(title, mode) {
     const task = {
       task_id: crypto.randomUUID(),
       session_id: this.data.session.session_id,
       title,
+      mode: mode === 'code' ? 'code' : 'chat',
       status: 'running',
       created_at: new Date().toISOString(),
     };

@@ -1,5 +1,18 @@
 const { spawn } = require('child_process');
 
+// Claude Code CLI의 기본 시스템 프롬프트는 "파일을 함부로 안 건드리는 신중한
+// 코딩 에이전트"로 튜닝돼 있다. 그래서 "2 더하기 2는?" 같은 일반 대화에도
+// 자꾸 범위를 되묻는다(--print 모드 특성). "대화" 모드에서는 이 지시를
+// --append-system-prompt 로 얹어서, 일반 채팅처럼 자연스럽게 답하도록 유도한다.
+// "코딩" 모드에서는 아무것도 얹지 않아 기본(신중한 에이전트) 동작을 그대로 쓴다
+// — projects\ 안의 실제 코드 작업을 시킬 땐 그 신중함이 오히려 필요하다.
+const CHAT_MODE_SYSTEM_PROMPT =
+  'You are being used through a casual chat-style UI (like a normal chat assistant), ' +
+  'not as an autonomous coding agent working in a repository. Respond directly and ' +
+  'naturally to conversational, informational, or math questions instead of asking ' +
+  'what file, menu, or option the user means. Only ask a clarifying question when the ' +
+  'request is genuinely ambiguous about what to do, or before making changes to files.';
+
 /**
  * Claude Code CLI(--print 모드)를 child_process 로 호출하는 얇은 래퍼.
  *
@@ -16,12 +29,18 @@ class ClaudeBridge {
 
   /**
    * @param {string} prompt 사용자 입력
+   * @param {'chat' | 'code'} [mode] 'chat'(기본값)이면 대화체로 답하도록 시스템
+   *   프롬프트를 얹는다. 'code'면 CLI 기본 동작(신중한 코딩 에이전트) 그대로.
    * @param {(chunk: string) => void} [onChunk] stdout 스트리밍 콜백
    * @returns {Promise<string>} 전체 응답 텍스트
    */
-  send(prompt, onChunk) {
+  send(prompt, mode, onChunk) {
     return new Promise((resolve, reject) => {
-      const args = ['--print', prompt];
+      const args = ['--print'];
+      if (mode !== 'code') {
+        args.push('--append-system-prompt', CHAT_MODE_SYSTEM_PROMPT);
+      }
+      args.push(prompt);
 
       // Claude Code CLI의 인증/세션 저장 위치를 USB 내부(claude-home)로 고정한다.
       // Electron 프로세스 자체의 HOME/USERPROFILE은 건드리지 않는다 — 그걸 통째로
