@@ -29,6 +29,16 @@ const threadWarning = document.getElementById('thread-warning');
 const resumeBanner = document.getElementById('resume-banner');
 const resumeThreadBtn = document.getElementById('resume-thread-btn');
 
+// 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
+// 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
+// 보인다. try/catch를 안 붙인 async 핸들러가 하나라도 있으면 재현이
+// 안 되므로, 마지막 안전망으로 처리되지 않은 실패를 화면에 직접 띄운다.
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[CAELUS] 처리되지 않은 오류:', event.reason);
+  const message = event.reason && event.reason.message ? event.reason.message : String(event.reason);
+  alert(`예상치 못한 오류가 발생했습니다:\n${message}`);
+});
+
 const STATE_LABEL = {
   idle: '대기 중',
   listening: '입력 처리 중',
@@ -611,12 +621,23 @@ function hideResumeBanner() {
 }
 
 resumeThreadBtn.addEventListener('click', async () => {
-  if (!viewingThread || !viewingThread.threadId) return;
-  activeProject = viewingThread.project;
-  await window.caelus.resumeThread(viewingThread.project, viewingThread.threadId);
-  hideResumeBanner();
-  await refreshThreadStatus();
-  input.focus();
+  if (!viewingThread || !viewingThread.threadId) {
+    // 이 상태에서는 원래 배너가 안 보여야 정상이지만(showResumeBanner를
+    // viewingThread 설정 직후에만 부름), 혹시 어긋나 있으면 눌러도 반응이
+    // 없는 것처럼 보이지 않도록 최소한 배너는 치워준다.
+    hideResumeBanner();
+    return;
+  }
+  try {
+    activeProject = viewingThread.project;
+    await window.caelus.resumeThread(viewingThread.project, viewingThread.threadId);
+    hideResumeBanner();
+    await refreshThreadStatus();
+    input.focus();
+  } catch (err) {
+    // IPC 호출이 실패해도 조용히 묻히지 않도록 명시적으로 알려준다.
+    alert(`이어서 대화하기에 실패했습니다: ${err && err.message ? err.message : err}`);
+  }
 });
 
 historySearch.addEventListener('input', renderHistoryTree);
