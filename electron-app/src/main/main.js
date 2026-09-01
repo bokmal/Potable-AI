@@ -1,8 +1,9 @@
 const { app, BrowserWindow, ipcMain, clipboard, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { execFile } = require('child_process');
-const { ClaudeBridge } = require('./claudeBridge');
+const { ClaudeBridge, isResumeFailure } = require('./claudeBridge');
 const { Store } = require('./store');
 const { guardCredentials } = require('./credentialsGuard');
 
@@ -136,37 +137,126 @@ ipcMain.handle('caelus:list-projects', () => {
   }
 });
 
-// --- IPC: projects\ 아래에 새 폴더 만들기 ---
-ipcMain.handle('caelus:create-project', (event, name) => {
-  const trimmed = String(name || '').trim();
+// 프로젝트(폴더) 이름 하나가 새로 만들거나(생성) 바꾸려는(이름변경) 이름으로
+// 유효한지 검사한다. create-project/rename-project가 공유한다.
+// existingTarget: 검사 대상 자기 자신의 현재 경로(이름변경 시, "이미 있는
+// 폴더" 체크에서 자기 자신은 예외로 치기 위해 필요) — 생성 시에는 생략.
+function validateProjectName(trimmed, { existingTarget } = {}) {
   if (!trimmed) {
-    return { created: false, reason: '이름을 입력해주세요.' };
+    return { ok: false, reason: '이름을 입력해주세요.' };
   }
   // 경로 구분자나 ".."이 들어오면 projects\ 바깥에 폴더를 만들 수 있게 되므로
   // 막는다. Windows에서 파일/폴더 이름에 못 쓰는 문자도 같이 걸러낸다.
   if (/[\\/:*?"<>|]/.test(trimmed) || trimmed === '.' || trimmed === '..') {
-    return { created: false, reason: '폴더 이름에 \\ / : * ? " < > | 는 쓸 수 없습니다.' };
+    return { ok: false, reason: '폴더 이름에 \\ / : * ? " < > | 는 쓸 수 없습니다.' };
   }
   if (trimmed.toLowerCase() === DEFAULT_PROJECT_NAME) {
-    return { created: false, reason: `'${DEFAULT_PROJECT_NAME}'은(는) 일반 작업용으로 예약된 이름입니다.` };
+    return { ok: false, reason: `'${DEFAULT_PROJECT_NAME}'은(는) 일반 작업용으로 예약된 이름입니다.` };
   }
 
   const target = path.join(PROJECTS_DIR, trimmed);
   // 위 필터를 통과하더라도 이중으로 확인한다 — 결과 경로가 반드시
   // PROJECTS_DIR 바로 아래여야 한다.
   if (path.dirname(target) !== PROJECTS_DIR) {
-    return { created: false, reason: '잘못된 이름입니다.' };
+    return { ok: false, reason: '잘못된 이름입니다.' };
   }
-  if (fs.existsSync(target)) {
-    return { created: false, reason: '이미 있는 폴더입니다.' };
+  if (fs.existsSync(target) && target !== existingTarget) {
+    return { ok: false, reason: '이미 있는 폴더입니다.' };
   }
 
+  return { ok: true, target };
+}
+
+// --- IPC: projects\ 아래에 새 폴더 만들기 ---
+ipcMain.handle('caelus:create-project', (event, name) => {
+  const trimmed = String(name || '').trim();
+  const check = validateProjectName(trimmed);
+  if (!check.ok) return { created: false, reason: check.reason };
+
   try {
-    fs.mkdirSync(target, { recursive: true });
+    fs.mkdirSync(check.target, { recursive: true });
     return { created: true, name: trimmed };
   } catch (err) {
     return { created: false, reason: err.message };
   }
+});
+
+// --- IPC: 프로젝트 폴더 이름변경 ---
+// 실제 폴더 이름을 바꾸고(fs.renameSync), 그 프로젝트에 속한 기존 작업
+// 기록(tasks)의 project 값과 활성 스레드 포인터도 같이 옮긴다 — 안 그러면
+// 이름을 바꾼 순간 과거 기록이 옛 이름의 "사라진 프로젝트"로 남아 고아가 된다.
+ipcMain.handle('caelus:rename-project', (event, oldName, newName) => {
+  const from = String(oldName || '').trim();
+  const to = String(newName || '').trim();
+  if (!from || from === DEFAULT_PROJECT_NAME) {
+    return { renamed: false, reason: '이 폴더는 이름을 바꿀 수 없습니다.' };
+  }
+  const fromPath = path.join(PROJECTS_DIR, from);
+  if (path.dirname(fromPath) !== PROJECTS_DIR || !fs.existsSync(fromPath)) {
+    return { renamed: false, reason: '대상 폴더를 찾을 수 없습니다.' };
+  }
+  const check = validateProjectName(to, { existingTarget: fromPath });
+  if (!check.ok) return { renamed: false, reason: check.reason };
+
+  try {
+    fs.renameSync(fromPath, check.target);
+    store.renameProjectInTasks(from, to);
+    return { renamed: true, name: to };
+  } catch (err) {
+    return { renamed: false, reason: err.message };
+  }
+});
+
+// --- IPC: 프로젝트 폴더 삭제 ---
+// 파괴적 작업 — 그 폴더 안 실제 작업 파일까지 전부 영구 삭제된다. 렌더러
+// 쪽에서 강한 확인 문구를 먼저 보여준 뒤에만 이 채널을 호출해야 한다.
+// 대화 기록(tasks/logs) 자체는 지우지 않는다 — 사이드바에서 "일반"
+// 그룹으로 자동 재배치되어 계속 보인다(고아 데이터 방지, 프로젝트 폴더
+// 삭제 ≠ 그 프로젝트에서 나눈 대화 기억을 지우는 것).
+ipcMain.handle('caelus:delete-project', (event, name) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed || trimmed === DEFAULT_PROJECT_NAME) {
+    return { deleted: false, reason: '이 폴더는 삭제할 수 없습니다.' };
+  }
+  const target = path.join(PROJECTS_DIR, trimmed);
+  if (path.dirname(target) !== PROJECTS_DIR) {
+    return { deleted: false, reason: '잘못된 이름입니다.' };
+  }
+  if (!fs.existsSync(target)) {
+    return { deleted: false, reason: '이미 없는 폴더입니다.' };
+  }
+
+  try {
+    fs.rmSync(target, { recursive: true, force: true });
+    store.clearActiveThread(trimmed);
+    return { deleted: true };
+  } catch (err) {
+    return { deleted: false, reason: err.message };
+  }
+});
+
+// --- IPC: 대화 스레드 연속성 ---
+ipcMain.handle('caelus:get-thread-info', (event, project) => {
+  return store.getThreadInfo(project || DEFAULT_PROJECT_NAME);
+});
+
+// "새 대화 시작" — 그 프로젝트의 활성 스레드 포인터만 지운다. 지금까지
+// 쌓인 tasks/logs(과거 기록)는 그대로 남는다.
+ipcMain.handle('caelus:new-thread', (event, project) => {
+  store.clearActiveThread(project || DEFAULT_PROJECT_NAME);
+  return store.getThreadInfo(project || DEFAULT_PROJECT_NAME);
+});
+
+// "이어서 대화하기" — 과거 기록에서 본 스레드를 그 프로젝트의 활성 스레드로
+// 다시 지정한다. 이미 활성 스레드였어도 멱등이라 그냥 덮어써도 안전하다.
+ipcMain.handle('caelus:resume-thread', (event, project, threadId) => {
+  const p = project || DEFAULT_PROJECT_NAME;
+  if (threadId) store.setActiveThread(p, threadId);
+  return store.getThreadInfo(p);
+});
+
+ipcMain.handle('caelus:rename-task', (event, taskId, newTitle) => {
+  return { renamed: store.renameTask(taskId, newTitle) };
 });
 
 // --- IPC: 클립보드 복사 ---
@@ -240,21 +330,29 @@ ipcMain.handle('caelus:cancel-command', (event, taskId) => {
 // cwd로 쓰지 않는다(예전엔 그렇게 했었는데, 그러면 프로젝트로 묶이지 않은
 // 파일들이 루트에 바로 쌓여서 지저분해진다는 문제가 있었다).
 ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => {
-  const task = store.createTask(text, mode);
-  activeTaskId = task.task_id;
-  send(event, 'caelus:status', { state: 'listening', taskId: task.task_id });
-
   const targetProject = projectName || DEFAULT_PROJECT_NAME;
   const cwd = path.join(PROJECTS_DIR, targetProject);
   if (!fs.existsSync(cwd)) {
     fs.mkdirSync(cwd, { recursive: true });
   }
 
-  try {
-    const responseText = await claude.send({
+  // 이 프로젝트에 이미 이어지고 있는 대화 스레드가 있으면 그걸 --resume,
+  // 없으면 새로 만든 uuid를 --session-id로 시작한다.
+  const existingThread = store.getActiveThread(targetProject);
+  const isNewThread = !existingThread;
+  const threadId = existingThread || crypto.randomUUID();
+
+  const task = store.createTask(text, mode, { project: targetProject, claudeSessionId: threadId });
+  activeTaskId = task.task_id;
+  send(event, 'caelus:status', { state: 'listening', taskId: task.task_id });
+
+  const attempt = (sessionId, resume) =>
+    claude.send({
       prompt: text,
       mode,
       cwd,
+      sessionId,
+      resume,
       onChunk: (chunk) => {
         send(event, 'caelus:stream', { taskId: task.task_id, chunk });
       },
@@ -263,8 +361,27 @@ ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => 
       },
     });
 
+  try {
+    let finalThreadId = threadId;
+    let responseText;
+    try {
+      responseText = await attempt(threadId, !isNewThread);
+    } catch (err) {
+      // 기존 스레드를 이어가려던 시도가 "--resume 이 그 스레드를 못 찾음"
+      // 종류의 실패면, 새 스레드로 한 번만 폴백 재시도한다. 그 외 실패(인증,
+      // 네트워크, 취소 등)는 그대로 위로 전파한다(조용히 삼키지 않음).
+      if (!isNewThread && isResumeFailure(err)) {
+        finalThreadId = crypto.randomUUID();
+        responseText = await attempt(finalThreadId, false);
+        store.updateTaskThread(task.task_id, finalThreadId);
+      } else {
+        throw err;
+      }
+    }
+
     store.appendLog(task.task_id, responseText);
     store.updateTaskStatus(task.task_id, 'done');
+    store.setActiveThread(targetProject, finalThreadId);
     send(event, 'caelus:status', { state: 'response', taskId: task.task_id });
 
     return { taskId: task.task_id, text: responseText };

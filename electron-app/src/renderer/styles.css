@@ -168,12 +168,18 @@ body {
   box-shadow: 0 0 8px rgba(79, 209, 224, 0.2);
 }
 
+.history-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .history-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  overflow-y: auto;
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
@@ -184,6 +190,124 @@ body {
   font-size: 12px;
   text-align: center;
   padding: var(--sp-5) var(--sp-2);
+}
+
+/* --- 사이드바 트리: 프로젝트 / 기타 대화 섹션 --- */
+.tree-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--sp-3) 0 var(--sp-2);
+}
+.tree-section-header:first-child {
+  margin-top: 0;
+}
+.tree-section-title {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.tree-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.tree-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg-soft);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 7px var(--sp-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.tree-group-header:hover {
+  border-color: var(--idle-soft);
+}
+.tree-caret {
+  color: var(--text-muted);
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.tree-caret.collapsed {
+  transform: rotate(-90deg);
+}
+.tree-group-name {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.tree-group-badge {
+  background: var(--bg-deep);
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  border-radius: 9px;
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.tree-group-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tree-group-header:hover .tree-group-actions {
+  opacity: 1;
+}
+.tg-action {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.tg-action:hover {
+  color: var(--idle);
+  background: rgba(79, 209, 224, 0.1);
+}
+.tg-action.tg-delete:hover {
+  color: var(--error);
+  background: rgba(224, 92, 92, 0.1);
+}
+
+.tree-group-children {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: 0 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  border-left: 1px dashed var(--card-border);
+}
+
+.tree-inline-input {
+  flex: 1;
+  width: auto;
+}
+
+.h-project-tag {
+  display: inline-block;
+  color: var(--idle-soft);
+  font-family: var(--font-mono);
+  margin-right: 6px;
 }
 
 .history-item {
@@ -211,7 +335,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 20px;
+  padding-right: 40px;
 }
 .history-item .h-meta {
   color: var(--text-muted);
@@ -220,10 +344,10 @@ body {
   margin-top: 4px;
   letter-spacing: 0.02em;
 }
+.history-item .h-rename,
 .history-item .h-delete {
   position: absolute;
   top: 6px;
-  right: 6px;
   background: transparent;
   border: none;
   color: var(--text-faint);
@@ -233,8 +357,18 @@ body {
   opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
 }
+.history-item .h-rename {
+  right: 24px;
+}
+.history-item .h-delete {
+  right: 6px;
+}
+.history-item:hover .h-rename,
 .history-item:hover .h-delete {
   opacity: 1;
+}
+.history-item .h-rename:hover {
+  color: var(--idle);
 }
 .history-item .h-delete:hover {
   color: var(--error);
@@ -456,28 +590,51 @@ html[data-theme='light'] .settings-panel {
   text-transform: uppercase;
 }
 
-/* --- 프로젝트(작업 폴더) 선택 --- */
-.project-row {
+/* --- 상태 표시줄: 지금 작업 중인 프로젝트/스레드 --- */
+.thread-status {
   width: 100%;
   max-width: 760px;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
+  margin-bottom: var(--sp-1);
   font-size: 12px;
 }
-.project-label {
+.thread-status-label {
   color: var(--text-muted);
   font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
-.project-select {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  color: var(--text);
+.thread-status .text-btn {
+  margin-left: auto;
+}
+
+.thread-warning {
+  width: 100%;
+  max-width: 760px;
+  color: var(--listening);
+  font-size: 11px;
+  margin-bottom: var(--sp-2);
+}
+
+.resume-banner {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--card-bg-soft);
+  border: 1px solid var(--idle);
   border-radius: var(--radius-sm);
-  padding: 5px 8px;
+  padding: 7px var(--sp-3);
   font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-2);
+  box-shadow: 0 0 10px rgba(79, 209, 224, 0.15);
+}
+.resume-banner .text-btn {
+  margin-left: auto;
+  font-weight: 600;
 }
 
 .new-project-input {

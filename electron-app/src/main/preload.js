@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('caelus', {
 
   listProjects: () => ipcRenderer.invoke('caelus:list-projects'),
   createProject: (name) => ipcRenderer.invoke('caelus:create-project', name),
+  renameProject: (oldName, newName) => ipcRenderer.invoke('caelus:rename-project', oldName, newName),
+  deleteProject: (name) => ipcRenderer.invoke('caelus:delete-project', name),
+
+  getThreadInfo: (project) => ipcRenderer.invoke('caelus:get-thread-info', project),
+  startNewThread: (project) => ipcRenderer.invoke('caelus:new-thread', project),
+  resumeThread: (project, threadId) => ipcRenderer.invoke('caelus:resume-thread', project, threadId),
+  renameTask: (taskId, newTitle) => ipcRenderer.invoke('caelus:rename-task', taskId, newTitle),
+
   copyText: (text) => ipcRenderer.invoke('caelus:copy-text', text),
   exportConversation: (content, suggestedName) =>
     ipcRenderer.invoke('caelus:export-conversation', { content, suggestedName }),

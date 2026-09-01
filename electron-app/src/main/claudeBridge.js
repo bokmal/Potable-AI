@@ -37,13 +37,19 @@ class ClaudeBridge {
    *   시스템 프롬프트를 얹는다. 'code'면 CLI 기본 동작(신중한 코딩 에이전트) 그대로.
    * @param {string} [opts.cwd] CLI를 실행할 작업 디렉터리(프로젝트 전환용).
    *   생략하면 이 프로세스(Electron 메인)의 cwd를 그대로 쓴다.
+   * @param {string} [opts.sessionId] 대화 연속성을 위한 Claude 세션 uuid.
+   *   호출자(main.js)가 crypto.randomUUID()로 직접 만들어 넘긴다 — 우리가
+   *   직접 관리하는 값이라 특수문자가 없어 인자로 넘겨도 안전하다(위 stdin
+   *   관련 주석과 같은 이유).
+   * @param {boolean} [opts.resume] true면 --resume(기존 스레드 이어가기),
+   *   false/생략이면 --session-id(그 uuid로 새 스레드 시작)로 넘긴다.
    * @param {(chunk: string) => void} [opts.onChunk] stdout 스트리밍 콜백
    * @param {(child: import('child_process').ChildProcess) => void} [opts.onSpawn]
    *   spawn 직후 자식 프로세스를 넘겨준다 — 호출자가 취소(child.kill())할 수
    *   있도록 참조를 잡아두는 용도.
    * @returns {Promise<string>} 전체 응답 텍스트
    */
-  send({ prompt, mode, cwd, onChunk, onSpawn } = {}) {
+  send({ prompt, mode, cwd, sessionId, resume, onChunk, onSpawn } = {}) {
     return new Promise((resolve, reject) => {
       // 사용자 프롬프트는 명령줄 인자가 아니라 stdin으로 전달한다(아래에서
       // child.stdin에 씀). Windows에서 이 프로세스는 shell:true로 cmd.exe를
@@ -57,6 +63,10 @@ class ClaudeBridge {
       const args = ['--print'];
       if (mode !== 'code') {
         args.push('--append-system-prompt', CHAT_MODE_SYSTEM_PROMPT);
+      }
+      if (sessionId) {
+        if (resume) args.push('--resume', sessionId);
+        else args.push('--session-id', sessionId);
       }
 
       // Claude Code CLI의 인증/세션 저장 위치를 USB 내부(claude-home)로 고정한다.
@@ -124,11 +134,31 @@ class ClaudeBridge {
           resolve(stdout.trim());
         } else {
           const detail = stderr.trim() || stdout.trim() || '(출력 없음)';
-          reject(new Error(`Claude Code CLI 가 코드 ${code} 로 종료되었습니다: ${detail}`));
+          const err = new Error(`Claude Code CLI 가 코드 ${code} 로 종료되었습니다: ${detail}`);
+          // isResumeFailure()가 원본 stderr/종료코드를 볼 수 있도록 붙여둔다
+          // (위 detail은 stdout이 섞여 들어갈 수 있어 판별용으로는 stderr가 더 정확함).
+          err.stderr = stderr.trim();
+          err.exitCode = code;
+          reject(err);
         }
       });
     });
   }
 }
 
-module.exports = { ClaudeBridge };
+// --resume <uuid> 가 실패했을 때(주로 그 uuid로 된 스레드를 CLI가 못 찾을
+// 때) 감지하는 보수적인 휴리스틱. "resume"이라는 단어와 실패를 뜻하는
+// 단어가 같이 나올 때만 true를 반환한다 — 인증 실패, 네트워크 오류 등
+// 무관한 에러를 잘못 "이어가기 실패"로 분류할 위험을 줄이기 위함이다.
+//
+// ⚠️ 실기기 검증 필요: --print 모드에서 잘못된 --resume 값이 정말 종료코드
+// nonzero + stderr로 실패하는지, 아니면 조용히 "그런 세션 없음" 내용을
+// 종료코드 0의 정상 응답으로 뱉는지 확인되지 않았다. 후자라면 이 감지 자체가
+// 무의미해지고 main.js의 폴백 재시도 로직이 트리거되지 않는다 — 알려진 제약.
+function isResumeFailure(err) {
+  const text = `${err && err.stderr ? err.stderr : ''} ${err && err.message ? err.message : ''}`.toLowerCase();
+  if (!text.includes('resume')) return false;
+  return /(not found|no such|invalid|expired|unknown|cannot find)/.test(text);
+}
+
+module.exports = { ClaudeBridge, isResumeFailure };

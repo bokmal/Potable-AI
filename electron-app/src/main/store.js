@@ -36,6 +36,8 @@ class Store {
     if (fs.existsSync(this.filePath)) {
       try {
         this.data = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
+        // 구버전 저장 파일(activeThreads 필드가 생기기 전)과의 하위호환.
+        if (!this.data.activeThreads) this.data.activeThreads = {};
         return;
       } catch (err) {
         // 파일이 깨져 있어도(예: USB가 저장 도중 뽑힘) 조용히 버리지 않는다.
@@ -65,6 +67,10 @@ class Store {
       },
       tasks: [],
       logs: [],
+      // 프로젝트별로 "지금 이어지고 있는" Claude 대화 스레드 id.
+      // { [projectName]: claudeSessionUuid }. 옛 파일에는 이 필드가 없을 수
+      // 있으므로 _load()에서 읽은 직후 항상 존재를 보장한다(아래 참고).
+      activeThreads: {},
     };
   }
 
@@ -79,7 +85,7 @@ class Store {
     fs.renameSync(tmpPath, this.filePath);
   }
 
-  createTask(title, mode) {
+  createTask(title, mode, { project, claudeSessionId } = {}) {
     const task = {
       task_id: crypto.randomUUID(),
       session_id: this.data.session.session_id,
@@ -87,11 +93,75 @@ class Store {
       mode: mode === 'code' ? 'code' : 'chat',
       status: 'running',
       created_at: new Date().toISOString(),
+      // project/claude_session_id: 어느 프로젝트 폴더에서, 어느 Claude 대화
+      // 스레드의 일부로 보낸 요청인지. 옛 기록에는 없으므로 읽는 쪽에서
+      // task.project || 'general' 로 취급한다(마이그레이션 불필요).
+      project: project || 'general',
+      claude_session_id: claudeSessionId || null,
     };
     this.data.tasks.unshift(task);
     this.data.session.last_used = task.created_at;
     this._save();
     return task;
+  }
+
+  // --- 프로젝트별 활성 대화 스레드 포인터 ---
+  getActiveThread(project) {
+    return this.data.activeThreads[project] || null;
+  }
+
+  setActiveThread(project, threadId) {
+    this.data.activeThreads[project] = threadId;
+    this._save();
+  }
+
+  clearActiveThread(project) {
+    delete this.data.activeThreads[project];
+    this._save();
+  }
+
+  // 그 프로젝트의 지금 활성 스레드와, 그 스레드에 쌓인 턴(task) 개수.
+  // 상태 표시줄이 매 응답마다 이걸 다시 조회해서 "n번째 메시지"를 표시한다.
+  getThreadInfo(project) {
+    const threadId = this.getActiveThread(project);
+    if (!threadId) return { threadId: null, turnCount: 0 };
+    const turnCount = this.data.tasks.filter(
+      (t) => (t.project || 'general') === project && t.claude_session_id === threadId
+    ).length;
+    return { threadId, turnCount };
+  }
+
+  // --print --resume 이 실패해서 새 스레드로 재시도(폴백)했을 때, 이미 만든
+  // task 기록의 claude_session_id 를 새 스레드 id로 보정한다.
+  updateTaskThread(taskId, newClaudeSessionId) {
+    const task = this.data.tasks.find((t) => t.task_id === taskId);
+    if (task) {
+      task.claude_session_id = newClaudeSessionId;
+      this._save();
+    }
+  }
+
+  renameTask(taskId, newTitle) {
+    const title = String(newTitle || '').trim();
+    if (!title) return false;
+    const task = this.data.tasks.find((t) => t.task_id === taskId);
+    if (!task) return false;
+    task.title = title;
+    this._save();
+    return true;
+  }
+
+  // 프로젝트 폴더 이름변경 시, 그 프로젝트에 속한 모든 task와 activeThreads
+  // 항목을 새 이름으로 일괄 갱신한다(기록이 "일반"으로 떨어져 나가지 않도록).
+  renameProjectInTasks(oldName, newName) {
+    this.data.tasks.forEach((t) => {
+      if ((t.project || 'general') === oldName) t.project = newName;
+    });
+    if (Object.prototype.hasOwnProperty.call(this.data.activeThreads, oldName)) {
+      this.data.activeThreads[newName] = this.data.activeThreads[oldName];
+      delete this.data.activeThreads[oldName];
+    }
+    this._save();
   }
 
   updateTaskStatus(taskId, status) {

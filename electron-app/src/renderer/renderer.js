@@ -6,22 +6,28 @@ const form = document.getElementById('command-form');
 const input = document.getElementById('command-input');
 const submitBtn = form.querySelector('.command-submit');
 const cancelBtn = document.getElementById('cancel-btn');
-const historyList = document.getElementById('history-list');
-const historyEmpty = document.getElementById('history-empty');
 const historySearch = document.getElementById('history-search');
+const historyEmpty = document.getElementById('history-empty');
+const projectGroupsEl = document.getElementById('project-groups');
+const generalGroupsEl = document.getElementById('general-groups');
+const searchResultsEl = document.getElementById('search-results');
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 const modeButtons = document.querySelectorAll('.mode-btn');
 const settingsToggle = document.getElementById('settings-toggle');
 const settingsPanel = document.getElementById('settings-panel');
 const themeToggle = document.getElementById('theme-toggle');
 const themeToggleLabel = document.getElementById('theme-toggle-label');
-const projectSelect = document.getElementById('project-select');
 const newProjectBtn = document.getElementById('new-project-btn');
 const newProjectInput = document.getElementById('new-project-input');
 const exportBtn = document.getElementById('export-btn');
 const checkUpdateBtn = document.getElementById('check-update-btn');
 const updateStatus = document.getElementById('update-status');
 const usageLinkBtn = document.getElementById('usage-link-btn');
+const threadStatusLabel = document.getElementById('thread-status-label');
+const newThreadBtn = document.getElementById('new-thread-btn');
+const threadWarning = document.getElementById('thread-warning');
+const resumeBanner = document.getElementById('resume-banner');
+const resumeThreadBtn = document.getElementById('resume-thread-btn');
 
 const STATE_LABEL = {
   idle: '대기 중',
@@ -35,13 +41,37 @@ const MODE_LABEL = {
   code: '코딩',
 };
 
+// 대화 한 스레드가 이 턴 수 이상이면 "길어졌다" 안내를 보여준다. 실제 토큰
+// 수를 로컬에서 정확히 잴 방법이 없어(CLI가 알려주지 않음) 턴 수 기반의
+// 대략적인 휴리스틱으로 둔다.
+const LONG_THREAD_TURN_THRESHOLD = 15;
+const DEFAULT_PROJECT_NAME = 'general';
+
 let idleTimer = null;
 let isBusy = false;
-let viewingTaskId = null; // 사이드바에서 클릭해 다시 보고 있는 과거 작업(있으면)
+let activeProject = DEFAULT_PROJECT_NAME; // 지금 입력창이 보낼 대상 프로젝트
+let viewingThread = null; // 사이드바에서 눌러 다시 보고 있는 과거 스레드 { project, threadId } (있으면)
 let pendingTaskId = null; // 지금 진행 중인 요청의 taskId
 let pendingBubble = null; // 그 요청의 스트리밍 대상 말풍선 { el, contentEl }
 let streamedText = '';
 let allTasksCache = [];
+let projectsCache = [DEFAULT_PROJECT_NAME];
+let collapsedGroups = new Set(); // 펼치기/접기 상태(project 이름 기준), 기본은 전부 펼침
+
+try {
+  const saved = JSON.parse(localStorage.getItem('caelus-collapsed-groups') || '[]');
+  if (Array.isArray(saved)) collapsedGroups = new Set(saved);
+} catch {
+  // 저장값이 없거나 손상돼도 기본(전부 펼침)으로 진행
+}
+
+function saveCollapsedGroups() {
+  try {
+    localStorage.setItem('caelus-collapsed-groups', JSON.stringify([...collapsedGroups]));
+  } catch {
+    // 저장 실패해도 이번 세션 표시에는 지장 없음
+  }
+}
 
 // ===================================================================
 // 테마 (다크 / 라이트)
@@ -207,86 +237,396 @@ function clearConversation() {
 }
 
 // ===================================================================
-// 작업 기록(사이드바) — 조회 / 검색 / 클릭해서 다시 보기 / 삭제 / 전체 삭제
+// 프로젝트(작업 폴더) — 사이드바 트리에 쓰일 이름/라벨 유틸
+// ===================================================================
+function projectLabel(name) {
+  return name === DEFAULT_PROJECT_NAME ? '일반 (자동 정리함)' : name;
+}
+
+async function loadProjects() {
+  projectsCache = await window.caelus.listProjects();
+  if (!projectsCache.includes(activeProject)) activeProject = DEFAULT_PROJECT_NAME;
+}
+
+// ===================================================================
+// 작업 기록(사이드바) — 조회 / 트리 렌더링 / 검색 / 스레드 보기 / 삭제
 // ===================================================================
 async function loadHistory() {
   allTasksCache = await window.caelus.getHistory();
-  renderHistoryList();
+  renderHistoryTree();
 }
 
-function renderHistoryActiveState() {
-  historyList.querySelectorAll('.history-item').forEach((li) => {
-    li.classList.toggle('active', li.dataset.taskId === viewingTaskId);
-  });
+// task.project가 지금 존재하는 프로젝트 폴더 목록에 없으면(프로젝트 삭제 후
+// 남은 과거 기록) "일반" 그룹으로 자동 재배치해서 보여준다 — 고아 데이터 방지.
+function effectiveProject(task) {
+  const p = task.project || DEFAULT_PROJECT_NAME;
+  if (p === DEFAULT_PROJECT_NAME) return DEFAULT_PROJECT_NAME;
+  return projectsCache.includes(p) ? p : DEFAULT_PROJECT_NAME;
 }
 
-function renderHistoryList() {
-  const query = historySearch.value.trim().toLowerCase();
-  const filtered = query
-    ? allTasksCache.filter((t) => t.title.toLowerCase().includes(query))
-    : allTasksCache;
-
-  historyList.innerHTML = '';
-  historyEmpty.hidden = filtered.length > 0;
-  filtered.forEach((task) => {
-    const li = document.createElement('li');
-    li.className = 'history-item';
-    li.dataset.taskId = task.task_id;
-    const modeLabel = MODE_LABEL[task.mode] || task.mode || '';
-    li.innerHTML = `
-      <div class="h-title">${escapeHtml(task.title)}</div>
-      <div class="h-meta">${modeLabel} · ${task.status} · ${new Date(task.created_at).toLocaleString('ko-KR')}</div>
-      <button type="button" class="h-delete" title="삭제">&#10005;</button>
-    `;
-    li.addEventListener('click', (event) => {
-      if (event.target.closest('.h-delete')) return;
-      viewTask(task.task_id);
-    });
-    li.querySelector('.h-delete').addEventListener('click', async (event) => {
-      event.stopPropagation();
-      if (!confirm('이 기록을 삭제할까요?')) return;
-      await window.caelus.deleteTask(task.task_id);
-      if (viewingTaskId === task.task_id) {
-        clearConversation();
-        viewingTaskId = null;
-      }
-      loadHistory();
-    });
-    historyList.appendChild(li);
-  });
-
-  renderHistoryActiveState();
-}
-
-async function viewTask(taskId) {
-  if (isBusy) return; // 진행 중인 요청이 있으면 화면을 안 바꾼다(혼란 방지)
-  const task = await window.caelus.getTask(taskId);
-  if (!task) return;
-
-  clearConversation();
-  addBubble('user', task.title);
-  task.logs.forEach((log) => {
-    if (log.content.startsWith('[오류] ')) {
-      addBubble('error', log.content.slice('[오류] '.length));
-    } else {
-      addBubble('assistant', log.content);
+// 같은 스레드(claude_session_id)에 속한 여러 task를 사이드바에 중복으로
+// 나열하지 않도록, 프로젝트별로 스레드 단위 그룹을 만든다. 스레드가 없는
+// (옛 기록, claude_session_id가 없는) task는 각자 자기 자신이 스레드다.
+function buildThreadGroups(tasks) {
+  const byProject = new Map(); // project -> Map(threadKey -> { threadId, tasks: [] })
+  tasks.forEach((task) => {
+    const project = effectiveProject(task);
+    if (!byProject.has(project)) byProject.set(project, new Map());
+    const threads = byProject.get(project);
+    const threadKey = task.claude_session_id || `__task_${task.task_id}`;
+    if (!threads.has(threadKey)) {
+      threads.set(threadKey, { threadId: task.claude_session_id || null, tasks: [] });
     }
+    threads.get(threadKey).tasks.push(task);
   });
-  if (task.logs.length === 0) {
-    addBubble('error', '(응답을 받기 전에 종료된 작업입니다)');
+  return byProject;
+}
+
+function threadDisplayTitle(threadEntry) {
+  // 최신(가장 먼저 온, allTasksCache가 최신순이므로 배열의 첫 항목) task의
+  // 제목을 대표 제목으로 쓴다.
+  return threadEntry.tasks[0].title;
+}
+
+function threadTurnCount(threadEntry) {
+  return threadEntry.tasks.length;
+}
+
+function threadLatestTask(threadEntry) {
+  return threadEntry.tasks[0];
+}
+
+function makeGroupHeader(project, threadCount) {
+  const header = document.createElement('div');
+  header.className = 'tree-group-header';
+  header.dataset.project = project;
+
+  const isCollapsed = collapsedGroups.has(project);
+  header.innerHTML = `
+    <span class="tree-caret ${isCollapsed ? 'collapsed' : ''}">&#9662;</span>
+    <span class="tree-group-name">${escapeHtml(projectLabel(project))}</span>
+    <span class="tree-group-badge">${threadCount}</span>
+    <span class="tree-group-actions">
+      <button type="button" class="tg-action tg-new" title="이 프로젝트로 새 대화 시작">&#43;</button>
+      ${project === DEFAULT_PROJECT_NAME ? '' : `
+        <button type="button" class="tg-action tg-rename" title="이름변경">&#9998;</button>
+        <button type="button" class="tg-action tg-delete" title="삭제">&#128465;</button>
+      `}
+    </span>
+  `;
+
+  // 헤더 클릭(캐럿/이름 부분) = 펼치기/접기만. 화면(활성 프로젝트/대화창)은
+  // 안 바뀐다 — 액션 버튼 영역 클릭은 여기서 걸러낸다(아래서 각각 처리).
+  header.addEventListener('click', (event) => {
+    if (event.target.closest('.tree-group-actions')) return;
+    toggleGroupCollapsed(project);
+  });
+
+  header.querySelector('.tg-new').addEventListener('click', (event) => {
+    event.stopPropagation();
+    startNewThreadForProject(project);
+  });
+
+  const renameBtn = header.querySelector('.tg-rename');
+  if (renameBtn) {
+    renameBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      startProjectRename(header, project);
+    });
   }
 
-  viewingTaskId = taskId;
-  renderHistoryActiveState();
+  const deleteBtn = header.querySelector('.tg-delete');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const ok = confirm(
+        `'${project}' 프로젝트를 삭제할까요?\n\n이 폴더 안 모든 파일이 영구 삭제됩니다. 되돌릴 수 없습니다.\n(지금까지 나눈 대화 기록은 "일반" 그룹으로 남습니다.)`
+      );
+      if (!ok) return;
+      const result = await window.caelus.deleteProject(project);
+      if (!result.deleted) {
+        alert(result.reason || '삭제하지 못했습니다.');
+        return;
+      }
+      if (activeProject === project) activeProject = DEFAULT_PROJECT_NAME;
+      if (viewingThread && viewingThread.project === project) {
+        clearConversation();
+        viewingThread = null;
+        hideResumeBanner();
+      }
+      await loadProjects();
+      await loadHistory();
+      refreshThreadStatus();
+    });
+  }
+
+  return header;
 }
 
-historySearch.addEventListener('input', renderHistoryList);
+function startProjectRename(header, project) {
+  const nameEl = header.querySelector('.tree-group-name');
+  const inputEl = document.createElement('input');
+  inputEl.type = 'text';
+  inputEl.className = 'new-project-input tree-inline-input';
+  inputEl.value = project;
+  nameEl.replaceWith(inputEl);
+  inputEl.focus();
+  inputEl.select();
+
+  let done = false;
+  const commit = async () => {
+    if (done) return;
+    done = true;
+    const newName = inputEl.value.trim();
+    if (!newName || newName === project) {
+      renderHistoryTree();
+      return;
+    }
+    const result = await window.caelus.renameProject(project, newName);
+    if (!result.renamed) {
+      alert(result.reason || '이름을 바꾸지 못했습니다.');
+      renderHistoryTree();
+      return;
+    }
+    if (activeProject === project) activeProject = result.name;
+    if (viewingThread && viewingThread.project === project) viewingThread.project = result.name;
+    await loadProjects();
+    await loadHistory();
+    refreshThreadStatus();
+  };
+
+  inputEl.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Escape') {
+      done = true;
+      renderHistoryTree();
+    }
+  });
+  inputEl.addEventListener('blur', commit);
+}
+
+function makeThreadItem(project, threadEntry) {
+  const latest = threadLatestTask(threadEntry);
+  const li = document.createElement('li');
+  li.className = 'history-item';
+  li.dataset.project = project;
+  li.dataset.threadKey = threadEntry.threadId || `__task_${latest.task_id}`;
+  const modeLabel = MODE_LABEL[latest.mode] || latest.mode || '';
+  const turns = threadTurnCount(threadEntry);
+  const turnsLabel = turns > 1 ? ` · ${turns}턴` : '';
+  li.innerHTML = `
+    <div class="h-title">${escapeHtml(threadDisplayTitle(threadEntry))}</div>
+    <div class="h-meta">${modeLabel} · ${latest.status} · ${new Date(latest.created_at).toLocaleString('ko-KR')}${turnsLabel}</div>
+    <button type="button" class="h-rename" title="제목 수정">&#9998;</button>
+    <button type="button" class="h-delete" title="삭제">&#10005;</button>
+  `;
+  li.addEventListener('click', (event) => {
+    if (event.target.closest('.h-delete') || event.target.closest('.h-rename')) return;
+    viewThread(project, threadEntry);
+  });
+  li.querySelector('.h-rename').addEventListener('click', (event) => {
+    event.stopPropagation();
+    startTaskRename(li, latest);
+  });
+  li.querySelector('.h-delete').addEventListener('click', async (event) => {
+    event.stopPropagation();
+    if (!confirm('이 기록을 삭제할까요?')) return;
+    // 스레드를 이루는 모든 task를 같이 지운다 — 하나만 지우면 나머지가
+    // "제목 없는" 조각으로 남아 혼란스럽다.
+    for (const t of threadEntry.tasks) {
+      await window.caelus.deleteTask(t.task_id);
+    }
+    if (viewingThread && viewingThread.project === project && viewingThread.threadId === threadEntry.threadId) {
+      clearConversation();
+      viewingThread = null;
+      hideResumeBanner();
+    }
+    loadHistory();
+  });
+  return li;
+}
+
+function startTaskRename(li, task) {
+  const titleEl = li.querySelector('.h-title');
+  const inputEl = document.createElement('input');
+  inputEl.type = 'text';
+  inputEl.className = 'new-project-input tree-inline-input';
+  inputEl.value = task.title;
+  titleEl.replaceWith(inputEl);
+  inputEl.focus();
+  inputEl.select();
+
+  let done = false;
+  const commit = async () => {
+    if (done) return;
+    done = true;
+    const newTitle = inputEl.value.trim();
+    if (newTitle && newTitle !== task.title) {
+      await window.caelus.renameTask(task.task_id, newTitle);
+    }
+    loadHistory();
+  };
+  inputEl.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Escape') {
+      done = true;
+      renderHistoryTree();
+    }
+  });
+  inputEl.addEventListener('blur', commit);
+}
+
+function toggleGroupCollapsed(project) {
+  if (collapsedGroups.has(project)) collapsedGroups.delete(project);
+  else collapsedGroups.add(project);
+  saveCollapsedGroups();
+  renderHistoryTree();
+}
+
+function renderGroup(container, project, threads) {
+  const group = document.createElement('div');
+  group.className = 'tree-group';
+  group.appendChild(makeGroupHeader(project, threads.size));
+
+  const children = document.createElement('ul');
+  children.className = 'tree-group-children';
+  if (collapsedGroups.has(project)) children.hidden = true;
+
+  // 스레드를 최신순으로(각 그룹 안의 대표 task 생성 시각 기준) 정렬한다.
+  [...threads.values()]
+    .sort((a, b) => new Date(threadLatestTask(b).created_at) - new Date(threadLatestTask(a).created_at))
+    .forEach((threadEntry) => children.appendChild(makeThreadItem(project, threadEntry)));
+
+  group.appendChild(children);
+  container.appendChild(group);
+}
+
+function renderSearchResults(query) {
+  searchResultsEl.hidden = false;
+  document.querySelectorAll('.tree-section-header').forEach((h) => (h.hidden = true));
+  projectGroupsEl.hidden = true;
+  generalGroupsEl.hidden = true;
+
+  const filtered = allTasksCache.filter((t) => t.title.toLowerCase().includes(query));
+  searchResultsEl.innerHTML = '';
+  historyEmpty.hidden = filtered.length > 0;
+
+  const groups = buildThreadGroups(filtered);
+  const flatThreads = [];
+  groups.forEach((threads, project) => {
+    threads.forEach((entry) => flatThreads.push({ project, entry }));
+  });
+  flatThreads
+    .sort((a, b) => new Date(threadLatestTask(b.entry).created_at) - new Date(threadLatestTask(a.entry).created_at))
+    .forEach(({ project, entry }) => {
+      const li = makeThreadItem(project, entry);
+      const tag = document.createElement('span');
+      tag.className = 'h-project-tag';
+      tag.textContent = projectLabel(project);
+      li.querySelector('.h-meta').prepend(tag);
+      searchResultsEl.appendChild(li);
+    });
+}
+
+function renderHistoryTree() {
+  const query = historySearch.value.trim().toLowerCase();
+
+  if (query) {
+    renderSearchResults(query);
+    return;
+  }
+
+  searchResultsEl.hidden = true;
+  document.querySelectorAll('.tree-section-header').forEach((h) => (h.hidden = false));
+  projectGroupsEl.hidden = false;
+  generalGroupsEl.hidden = false;
+
+  projectGroupsEl.innerHTML = '';
+  generalGroupsEl.innerHTML = '';
+
+  const groups = buildThreadGroups(allTasksCache);
+  historyEmpty.hidden = allTasksCache.length > 0;
+
+  // "프로젝트" 섹션: general을 제외한 나머지 프로젝트를, 실제로 만들어져
+  // 있는 폴더(projectsCache) 순서대로. 대화 기록이 없는 프로젝트도 빈
+  // 그룹으로 보여준다(방금 만든 빈 프로젝트가 사라져 보이지 않도록).
+  projectsCache
+    .filter((name) => name !== DEFAULT_PROJECT_NAME)
+    .forEach((name) => {
+      renderGroup(projectGroupsEl, name, groups.get(name) || new Map());
+    });
+
+  // "기타 대화" 섹션: general 하나만, 항상 표시.
+  renderGroup(generalGroupsEl, DEFAULT_PROJECT_NAME, groups.get(DEFAULT_PROJECT_NAME) || new Map());
+}
+
+async function viewThread(project, threadEntry) {
+  if (isBusy) return; // 진행 중인 요청이 있으면 화면을 안 바꾼다(혼란 방지)
+
+  clearConversation();
+  // 스레드에 속한 task들을 시간순(오래된 것부터)으로 늘어놓는다.
+  const ordered = [...threadEntry.tasks].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  for (const summary of ordered) {
+    const task = await window.caelus.getTask(summary.task_id);
+    if (!task) continue;
+    addBubble('user', task.title);
+    task.logs.forEach((log) => {
+      if (log.content.startsWith('[오류] ')) {
+        addBubble('error', log.content.slice('[오류] '.length));
+      } else {
+        addBubble('assistant', log.content);
+      }
+    });
+    if (task.logs.length === 0) {
+      addBubble('error', '(응답을 받기 전에 종료된 작업입니다)');
+    }
+  }
+
+  viewingThread = { project, threadId: threadEntry.threadId };
+  // threadId가 없는 옛 기록(스레드 개념이 생기기 전 1회성 작업)은 애초에
+  // "이어갈" 스레드가 없으므로 배너를 보여주지 않는다. threadId가 있으면,
+  // 지금 그 프로젝트의 활성 스레드와 같은 걸 보고 있는 게 아닐 때만
+  // "이어서 대화하기" 배너를 보여준다(= 과거 기록을 훑어보는 중이라는 뜻).
+  if (!threadEntry.threadId) {
+    hideResumeBanner();
+    return;
+  }
+  const info = await window.caelus.getThreadInfo(project);
+  if (info.threadId === threadEntry.threadId) {
+    hideResumeBanner();
+  } else {
+    showResumeBanner();
+  }
+}
+
+function showResumeBanner() {
+  resumeBanner.hidden = false;
+}
+function hideResumeBanner() {
+  resumeBanner.hidden = true;
+}
+
+resumeThreadBtn.addEventListener('click', async () => {
+  if (!viewingThread || !viewingThread.threadId) return;
+  activeProject = viewingThread.project;
+  await window.caelus.resumeThread(viewingThread.project, viewingThread.threadId);
+  hideResumeBanner();
+  await refreshThreadStatus();
+  input.focus();
+});
+
+historySearch.addEventListener('input', renderHistoryTree);
 
 clearHistoryBtn.addEventListener('click', async () => {
   if (!confirm('작업 기록을 전부 삭제할까요? 되돌릴 수 없습니다.')) return;
   await window.caelus.clearHistory();
   clearConversation();
-  viewingTaskId = null;
+  viewingThread = null;
+  hideResumeBanner();
   loadHistory();
 });
 
@@ -299,30 +639,10 @@ usageLinkBtn.addEventListener('click', () => {
 });
 
 // ===================================================================
-// 프로젝트(작업 폴더) 선택
-// projects\ 아래 첫 항목은 항상 "general"(일반) — 프로젝트를 안 고르고
-// 하는 일반 작업이 자동으로 모이는 폴더다. 나머지는 사용자가 만든 프로젝트.
-// ===================================================================
-function projectLabel(name) {
-  return name === 'general' ? '일반 (자동 정리함)' : name;
-}
-
-async function loadProjects() {
-  const projects = await window.caelus.listProjects();
-  const current = projectSelect.value;
-  projectSelect.innerHTML = '';
-  projects.forEach((name) => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = projectLabel(name);
-    projectSelect.appendChild(opt);
-  });
-  projectSelect.value = projects.includes(current) ? current : 'general';
-}
-
+// 새 프로젝트 만들기
 // Electron은 window.prompt()를 지원하지 않는다(호출해도 다이얼로그가 안 뜨고
-// 조용히 무시된다) — 그래서 버튼을 눌러도 아무 반응이 없었다. 화면에 직접
-// 입력창을 보여주는 방식으로 바꿨다.
+// 조용히 무시된다) — 화면에 직접 입력창을 보여주는 방식으로 처리한다.
+// ===================================================================
 function showNewProjectInput() {
   newProjectBtn.hidden = true;
   newProjectInput.hidden = false;
@@ -356,11 +676,42 @@ newProjectInput.addEventListener('keydown', async (event) => {
     return;
   }
   hideNewProjectInput();
+  activeProject = result.name;
   await loadProjects();
-  projectSelect.value = result.name;
+  await loadHistory();
+  refreshThreadStatus();
 });
 
 newProjectInput.addEventListener('blur', hideNewProjectInput);
+
+// ===================================================================
+// 대화 스레드 연속성 — 상태 표시줄 / 새 대화 시작
+// ===================================================================
+async function refreshThreadStatus() {
+  const info = await window.caelus.getThreadInfo(activeProject);
+  const turnLabel = info.turnCount > 0 ? ` · ${info.turnCount}번째 메시지` : '';
+  threadStatusLabel.textContent = `\u{1F4C1} ${projectLabel(activeProject)}${turnLabel}`;
+  threadWarning.hidden = info.turnCount < LONG_THREAD_TURN_THRESHOLD;
+  newThreadBtn.disabled = isBusy;
+  return info;
+}
+
+async function startNewThreadForProject(project) {
+  if (isBusy) return;
+  const info = await window.caelus.getThreadInfo(project);
+  if (info.turnCount > 0) {
+    if (!confirm('지금 대화를 마치고 새로 시작할까요? (지금까지 기록은 사이드바에 남습니다)')) return;
+  }
+  await window.caelus.startNewThread(project);
+  activeProject = project;
+  clearConversation();
+  viewingThread = null;
+  hideResumeBanner();
+  refreshThreadStatus();
+  input.focus();
+}
+
+newThreadBtn.addEventListener('click', () => startNewThreadForProject(activeProject));
 
 // ===================================================================
 // 자주 쓰는 명령(프리셋) — 입력창에 채워주기만 함(바로 전송하지 않음)
@@ -421,6 +772,7 @@ function setBusy(busy) {
   input.disabled = busy;
   submitBtn.disabled = busy;
   cancelBtn.hidden = !busy;
+  newThreadBtn.disabled = busy;
 }
 
 window.caelus.onStatus(({ state, taskId }) => {
@@ -455,20 +807,23 @@ form.addEventListener('submit', async (event) => {
   const text = input.value.trim();
   if (!text || isBusy) return;
 
-  // 새 명령을 보내면 지금 보고 있던 화면(과거 기록이든 이전 대화든)을 지우고
-  // 새 교환 하나를 새로 시작한다 — CLI 호출 자체가 매번 독립적인 1회성
-  // 요청이라, "이어서 대화"가 아니라 "새 질문"에 더 가깝기 때문이다.
-  clearConversation();
-  viewingTaskId = null;
+  // 지금 화면에 과거 기록(다른 스레드, 또는 activeProject의 지금 활성
+  // 스레드가 아닌 것)을 보고 있었다면, 새 메시지는 activeProject의 활성
+  // 스레드로 가므로 화면을 새로 그린다. 지금 보고 있던 게 바로 그
+  // activeProject의 활성 스레드였다면(예: 이어서 대화하기 직후) 화면을
+  // 그대로 두고 이어서 말풍선만 추가한다.
+  if (viewingThread && !(viewingThread.project === activeProject && resumeBanner.hidden)) {
+    clearConversation();
+  }
+  viewingThread = null;
+  hideResumeBanner();
 
   addBubble('user', text);
   input.value = '';
   setBusy(true);
 
-  const projectName = projectSelect.value;
-
   try {
-    const result = await window.caelus.sendCommand(text, currentMode, projectName);
+    const result = await window.caelus.sendCommand(text, currentMode, activeProject);
     if (pendingBubble) {
       setBubbleContent(pendingBubble.contentEl, 'assistant', result.text);
     } else {
@@ -481,7 +836,8 @@ form.addEventListener('submit', async (event) => {
     pendingBubble = null;
     pendingTaskId = null;
     setBusy(false);
-    loadHistory();
+    await loadHistory();
+    refreshThreadStatus();
   }
 });
 
@@ -509,5 +865,8 @@ document.addEventListener('keydown', (event) => {
 // 초기 로드
 // ===================================================================
 setState('idle');
-loadHistory();
-loadProjects();
+(async () => {
+  await loadProjects();
+  await loadHistory();
+  await refreshThreadStatus();
+})();
