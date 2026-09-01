@@ -38,7 +38,12 @@ npm start
 
 ## Claude Code CLI 연동 방식
 
-- `claudeBridge.js`가 `claude --print "<입력>"`을 `child_process.spawn`으로 호출한다.
+- `claudeBridge.js`가 `claude --print`를 `child_process.spawn`으로 호출한다.
+  사용자 프롬프트는 명령줄 인자가 아니라 **stdin으로 전달**한다 — Windows에서
+  이 프로세스는 shell:true로 cmd.exe를 거쳐 실행되는데, 사용자가 입력한
+  문장에 괄호/`&`/`%`/`^` 같은 cmd.exe 특수문자가 섞이면 명령줄 자체가 깨져서
+  프롬프트가 잘리거나 다른 인자와 뒤섞이는 문제가 실사용 중 확인됐다. stdin은
+  셸 파싱을 거치지 않으므로 사용자가 뭘 입력하든 안전하다.
 - CLI 실행 파일 경로는 기본적으로 PATH의 `claude`를 사용하며,
   `CAELUS_CLAUDE_CMD` 환경변수로 재정의할 수 있다.
 - `start.bat`이 `PATH`에 portable `node`/`git`을 추가하고 `CAELUS_HOME`

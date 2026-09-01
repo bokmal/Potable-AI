@@ -2,16 +2,19 @@ const { spawn } = require('child_process');
 
 // Claude Code CLI의 기본 시스템 프롬프트는 "파일을 함부로 안 건드리는 신중한
 // 코딩 에이전트"로 튜닝돼 있다. 그래서 "2 더하기 2는?" 같은 일반 대화에도
-// 자꾸 범위를 되묻는다(--print 모드 특성). "대화" 모드에서는 이 지시를
-// --append-system-prompt 로 얹어서, 일반 채팅처럼 자연스럽게 답하도록 유도한다.
-// "코딩" 모드에서는 아무것도 얹지 않아 기본(신중한 에이전트) 동작을 그대로 쓴다
-// — projects\ 안의 실제 코드 작업을 시킬 땐 그 신중함이 오히려 필요하다.
+// 자꾸 범위를 되묻는다(--print 모드 특성). "대화" 모드에서는 이 지시를 얹어서
+// 일반 채팅처럼 자연스럽게 답하도록 유도한다. "코딩" 모드에서는 아무것도
+// 얹지 않아 기본(신중한 에이전트) 동작을 그대로 쓴다 — projects\ 안의 실제
+// 코드 작업을 시킬 땐 그 신중함이 오히려 필요하다.
+//
+// 괄호/따옴표 등 특수문자를 피해 plain 문장으로만 구성한다 — 아래 stdin 관련
+// 주석 참고.
 const CHAT_MODE_SYSTEM_PROMPT =
-  'You are being used through a casual chat-style UI (like a normal chat assistant), ' +
-  'not as an autonomous coding agent working in a repository. Respond directly and ' +
-  'naturally to conversational, informational, or math questions instead of asking ' +
-  'what file, menu, or option the user means. Only ask a clarifying question when the ' +
-  'request is genuinely ambiguous about what to do, or before making changes to files.';
+  'You are being used through a casual chat style interface, not as an autonomous ' +
+  'coding agent working inside a repository. Respond directly and naturally to ' +
+  'conversational, informational, or math questions instead of asking what file or ' +
+  'option the user means. Only ask a clarifying question when the request is ' +
+  'genuinely ambiguous about what to do, or before making changes to files.';
 
 /**
  * Claude Code CLI(--print 모드)를 child_process 로 호출하는 얇은 래퍼.
@@ -36,11 +39,19 @@ class ClaudeBridge {
    */
   send(prompt, mode, onChunk) {
     return new Promise((resolve, reject) => {
+      // 사용자 프롬프트는 명령줄 인자가 아니라 stdin으로 전달한다(아래에서
+      // child.stdin에 씀). Windows에서 이 프로세스는 shell:true로 cmd.exe를
+      // 거쳐 실행되는데, 사용자가 입력한 문장에 괄호/&/%/^ 같은 cmd.exe
+      // 특수문자가 섞이면 명령줄 자체가 깨져서 프롬프트가 잘리거나 다른
+      // 인자와 뒤섞이는 문제가 실사용 중 확인됐다. stdin은 셸 파싱을 아예
+      // 거치지 않으므로 어떤 문자가 들어와도 안전하다.
+      // --append-system-prompt 값(CHAT_MODE_SYSTEM_PROMPT)은 우리가 직접
+      // 관리하는 고정 문자열이라 특수문자를 안 쓰도록 짜뒀으므로 인자로
+      // 넘겨도 안전하다.
       const args = ['--print'];
       if (mode !== 'code') {
         args.push('--append-system-prompt', CHAT_MODE_SYSTEM_PROMPT);
       }
-      args.push(prompt);
 
       // Claude Code CLI의 인증/세션 저장 위치를 USB 내부(claude-home)로 고정한다.
       // Electron 프로세스 자체의 HOME/USERPROFILE은 건드리지 않는다 — 그걸 통째로
@@ -68,10 +79,10 @@ class ClaudeBridge {
         env,
       });
 
-      // 이 프로세스는 stdin으로 아무것도 보내지 않는다(프롬프트는 인자로 전달).
-      // stdin을 열어둔 채로 두면 CLI가 "혹시 파이프로 입력이 오나?" 하고 몇 초
-      // 대기하다 경고를 낸다 — 즉시 EOF를 보내 그 대기를 건너뛴다.
-      child.stdin.end();
+      // 프롬프트를 stdin으로 쓰고 바로 닫는다(EOF). 위 주석 참고 — 명령줄
+      // 인자 대신 stdin을 쓰는 이유는 셸 특수문자로 인한 명령줄 손상을
+      // 피하기 위함이다.
+      child.stdin.end(prompt, 'utf8');
 
       let stdout = '';
       let stderr = '';
