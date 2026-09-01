@@ -117,6 +117,36 @@ ipcMain.handle('caelus:list-projects', () => {
   }
 });
 
+// --- IPC: projects\ 아래에 새 폴더 만들기 ---
+ipcMain.handle('caelus:create-project', (event, name) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) {
+    return { created: false, reason: '이름을 입력해주세요.' };
+  }
+  // 경로 구분자나 ".."이 들어오면 projects\ 바깥에 폴더를 만들 수 있게 되므로
+  // 막는다. Windows에서 파일/폴더 이름에 못 쓰는 문자도 같이 걸러낸다.
+  if (/[\\/:*?"<>|]/.test(trimmed) || trimmed === '.' || trimmed === '..') {
+    return { created: false, reason: '폴더 이름에 \\ / : * ? " < > | 는 쓸 수 없습니다.' };
+  }
+
+  const target = path.join(PROJECTS_DIR, trimmed);
+  // 위 필터를 통과하더라도 이중으로 확인한다 — 결과 경로가 반드시
+  // PROJECTS_DIR 바로 아래여야 한다.
+  if (path.dirname(target) !== PROJECTS_DIR) {
+    return { created: false, reason: '잘못된 이름입니다.' };
+  }
+  if (fs.existsSync(target)) {
+    return { created: false, reason: '이미 있는 폴더입니다.' };
+  }
+
+  try {
+    fs.mkdirSync(target, { recursive: true });
+    return { created: true, name: trimmed };
+  } catch (err) {
+    return { created: false, reason: err.message };
+  }
+});
+
 // --- IPC: 클립보드 복사 ---
 ipcMain.handle('caelus:copy-text', (event, text) => {
   clipboard.writeText(String(text ?? ''));

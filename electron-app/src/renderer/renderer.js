@@ -12,6 +12,7 @@ const clearHistoryBtn = document.getElementById('clear-history-btn');
 const modeButtons = document.querySelectorAll('.mode-btn');
 const themeToggle = document.getElementById('theme-toggle');
 const projectSelect = document.getElementById('project-select');
+const newProjectBtn = document.getElementById('new-project-btn');
 const exportBtn = document.getElementById('export-btn');
 const checkUpdateBtn = document.getElementById('check-update-btn');
 const updateStatus = document.getElementById('update-status');
@@ -306,6 +307,18 @@ async function loadProjects() {
   });
   if (projects.includes(current)) projectSelect.value = current;
 }
+
+newProjectBtn.addEventListener('click', async () => {
+  const name = prompt('새 프로젝트 폴더 이름을 입력하세요:');
+  if (!name || !name.trim()) return;
+  const result = await window.caelus.createProject(name);
+  if (!result.created) {
+    alert(result.reason || '폴더를 만들지 못했습니다.');
+    return;
+  }
+  await loadProjects();
+  projectSelect.value = result.name;
+});
 
 // ===================================================================
 // 자주 쓰는 명령(프리셋) — 입력창에 채워주기만 함(바로 전송하지 않음)

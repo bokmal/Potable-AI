@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('caelus', {
   getUsage: () => ipcRenderer.invoke('caelus:get-usage'),
 
   listProjects: () => ipcRenderer.invoke('caelus:list-projects'),
+  createProject: (name) => ipcRenderer.invoke('caelus:create-project', name),
   copyText: (text) => ipcRenderer.invoke('caelus:copy-text', text),
   exportConversation: (content, suggestedName) =>
     ipcRenderer.invoke('caelus:export-conversation', { content, suggestedName }),
