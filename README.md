@@ -21,9 +21,11 @@ Potable-AI\
 ├── setup.bat               최초 1회, 관리자 권한, PC에 자동실행 트리거 등록
 ├── install_trigger.ps1     작업 스케줄러 등록 스크립트
 ├── find_usb_by_serial.ps1  볼륨 시리얼로 USB 재탐색 (드라이브 문자 변동 대응)
+├── install_runtime.bat      런타임(Node/Git/CLI/Electron 의존성) 자동 설치
+├── install_runtime.ps1      〃 실제 로직
 ├── start.bat                CAELUS 진입점 (HOME 리다이렉트 포함)
-├── node\                    Node.js portable (직접 다운로드, node/README.md 참고)
-├── git\                     PortableGit (직접 다운로드, git/README.md 참고)
+├── node\                    Node.js portable (install_runtime.bat 또는 node/README.md 참고)
+├── git\                     PortableGit (install_runtime.bat 또는 git/README.md 참고)
 ├── electron-app\            CAELUS UI 소스 (electron-app/README.md 참고)
 ├── claude-home\              HOME 리다이렉트 대상 — Claude 인증/세션, 작업 기록
 ├── projects\                 실제 작업 파일
@@ -33,17 +35,11 @@ Potable-AI\
 ## USB 준비 (최초 1회, 인터넷 필요)
 
 1. 이 저장소 전체를 USB로 복사한다 (예: `E:\PortableDev\`).
-2. `node/README.md`, `git/README.md`의 안내대로 Node.js portable, PortableGit을 받아
-   각 폴더에 채워 넣는다.
-3. Claude Code CLI를 설치한다:
-   ```
-   node\npm.cmd install -g @anthropic-ai/claude-code
-   ```
-4. Electron 앱 의존성을 설치한다:
-   ```
-   cd electron-app
-   ..\node\npm.cmd install
-   ```
+2. `install_runtime.bat`을 더블클릭한다. Node.js portable, PortableGit, Claude
+   Code CLI, Electron 의존성을 전부 자동으로 내려받아 설치한다 (수 분 소요).
+   이미 설치된 항목은 건너뛰므로 재실행해도 안전하다.
+   - 자동 설치가 막히는 환경(사내 프록시/방화벽 등)이라면 `node/README.md`,
+     `git/README.md`의 수동 설치 절차를 대신 따른다.
 
 ## 사용법
 
@@ -102,6 +98,9 @@ JSON으로 저장된다 (`electron-app/src/main/store.js`). 자세한 내용은
 - [ ] 음성 인식(STT)은 아직 미구현 — 현재는 텍스트 명령 입력만 지원.
 - [ ] `claudeBridge.js`가 사용하는 CLI 인자(`--print`)는 설치된 Claude Code CLI
       버전에 맞춰 검증 필요 (버전에 따라 세션 재개용 플래그 등이 다를 수 있음).
+- [ ] `install_runtime.ps1`은 nodejs.org / GitHub API(github.com)에 직접 접속해야
+      한다 — 사내 프록시·방화벽 환경에서는 실패할 수 있으며, 이 경우 각 폴더의
+      README 수동 설치 절차로 대체해야 한다.
 
 이 저장소의 모든 스크립트는 Windows 전용(batch/PowerShell)이며, 이 개발
 환경(Linux)에서는 실제 실행 테스트를 하지 못했다. Windows PC에서 최초
