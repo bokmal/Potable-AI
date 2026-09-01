@@ -28,6 +28,8 @@ const newThreadBtn = document.getElementById('new-thread-btn');
 const threadWarning = document.getElementById('thread-warning');
 const resumeBanner = document.getElementById('resume-banner');
 const resumeThreadBtn = document.getElementById('resume-thread-btn');
+const osMenuToggle = document.getElementById('os-menu-toggle');
+const osMenuList = document.getElementById('os-menu-list');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -108,16 +110,105 @@ applyTheme(currentTheme);
 themeToggle.addEventListener('click', () => applyTheme(currentTheme === 'light' ? 'dark' : 'light'));
 
 // ===================================================================
-// 설정 패널 (톱니바퀴 아이콘으로 여닫음)
+// 좌상단 메뉴(os-menu) + 떠 있는 패널(.floating-panel) — 프로젝트/작업 상태/
+// 작업 공간/설정은 항상 화면에 있는 게 아니라, 이 메뉴에서 열어야만 나타나는
+// 독립된 창이다. 여러 개를 동시에 열어둘 수 있고(윈도우 창처럼), 닫는 건
+// 각 패널의 ✕ 버튼뿐이다 — 설정 패널도 예전처럼 바깥을 클릭하면 자동으로
+// 닫히던 방식을 버리고 다른 패널과 동일하게 동작시켜, "떠 있는 위젯"이라는
+// 느낌을 전부 통일했다.
 // ===================================================================
+let floatingPanelZ = 30; // .floating-panel 기본 z-index(30)보다 항상 위로
+
+function bringPanelToFront(panel) {
+  floatingPanelZ += 1;
+  panel.style.zIndex = String(floatingPanelZ);
+}
+
+function openPanel(panel) {
+  if (!panel) return;
+  panel.hidden = false;
+  bringPanelToFront(panel);
+}
+
+function closeOsMenu() {
+  osMenuList.hidden = true;
+}
+
+osMenuToggle.addEventListener('click', (event) => {
+  event.stopPropagation();
+  osMenuList.hidden = !osMenuList.hidden;
+});
+
+document.querySelectorAll('.os-menu-item[data-panel-target]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    openPanel(document.getElementById(btn.dataset.panelTarget));
+    closeOsMenu();
+  });
+});
+
 settingsToggle.addEventListener('click', (event) => {
   event.stopPropagation();
-  settingsPanel.hidden = !settingsPanel.hidden;
+  openPanel(settingsPanel);
+  closeOsMenu();
 });
+
+// 메뉴 바깥을 클릭하면 드롭다운만 닫는다 — 이미 열어둔 패널들은 그대로
+// 둔다(위젯이니까 다른 곳을 눌렀다고 사라지면 안 된다).
 document.addEventListener('click', (event) => {
-  if (!settingsPanel.hidden && !settingsPanel.contains(event.target) && event.target !== settingsToggle) {
-    settingsPanel.hidden = true;
+  if (!osMenuList.hidden && !event.target.closest('.os-menu')) {
+    closeOsMenu();
   }
+});
+
+// 패널 어딘가를 클릭(드래그 시작 포함)하면 그 패널을 맨 앞으로 — 여러 창이
+// 겹쳤을 때 마지막으로 만진 게 위로 오는, 흔한 "OS 창" 동작.
+document.querySelectorAll('.floating-panel').forEach((panel) => {
+  panel.addEventListener('mousedown', () => bringPanelToFront(panel));
+
+  panel.querySelectorAll('[data-close-panel]').forEach((closeBtn) => {
+    closeBtn.addEventListener('click', () => {
+      panel.hidden = true;
+    });
+  });
+
+  const head = panel.querySelector('.floating-panel-head');
+  if (!head) return;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  head.addEventListener('mousedown', (event) => {
+    if (event.target.closest('.floating-panel-close')) return;
+    dragging = true;
+    // 지금까지 CSS(top/left 또는 right)로 잡혀 있던 위치를 드래그 시작
+    // 순간의 실제 화면 좌표(px)로 고정해둔다 — 안 그러면 #settings-panel처럼
+    // right로 위치를 잡는 패널은 mousemove로 left를 바꿔도 움직이지 않는다.
+    const rect = panel.getBoundingClientRect();
+    panel.style.left = `${rect.left}px`;
+    panel.style.top = `${rect.top}px`;
+    panel.style.right = 'auto';
+    startX = event.clientX;
+    startY = event.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    event.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (event) => {
+    if (!dragging) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight);
+    panel.style.left = `${Math.min(Math.max(0, startLeft + dx), maxLeft)}px`;
+    panel.style.top = `${Math.min(Math.max(0, startTop + dy), maxTop)}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+  });
 });
 
 // ===================================================================
@@ -944,8 +1035,8 @@ document.addEventListener('keydown', (event) => {
     historySearch.focus();
   }
   if (event.key === 'Escape') {
-    if (!settingsPanel.hidden) {
-      settingsPanel.hidden = true;
+    if (!osMenuList.hidden) {
+      closeOsMenu();
     } else if (isBusy) {
       cancelBtn.click();
     } else if (document.activeElement === input && input.value) {
@@ -962,6 +1053,7 @@ document.addEventListener('keydown', (event) => {
 const fullscreenToggle = document.getElementById('fullscreen-toggle');
 if (fullscreenToggle) {
   fullscreenToggle.addEventListener('click', async () => {
+    closeOsMenu();
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();

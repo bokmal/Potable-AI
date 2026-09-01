@@ -12,96 +12,24 @@
     <div class="scanline" aria-hidden="true"></div>
     <div class="radar-glow" aria-hidden="true"></div>
 
-    <aside class="sidebar left-deck" aria-label="프로젝트와 대화 기록">
-      <div class="brand command-card compact">
-        <div class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true">◉</span>
-          <div>
-            <span class="brand-kicker">PRIVATE LOCAL AI</span>
-            <span class="brand-name">CAELUS</span>
-          </div>
-        </div>
-        <button id="settings-toggle" class="icon-btn" type="button" title="설정">⚙</button>
+    <!-- 화면에 상시 존재하는 건 이 메뉴 하나뿐 — 프로젝트/상태/작업 공간/
+         설정은 전부 여기서 열고 닫는 떠 있는 창(.floating-panel)이다. -->
+    <div class="os-menu">
+      <button id="os-menu-toggle" class="os-menu-trigger" type="button" title="메뉴">
+        <span class="brand-mark" aria-hidden="true">◉</span>
+        <span class="os-menu-trigger-label">CAELUS</span>
+      </button>
+      <div id="os-menu-list" class="os-menu-list" hidden>
+        <button type="button" class="os-menu-item" data-panel-target="panel-projects">프로젝트</button>
+        <button type="button" class="os-menu-item" data-panel-target="panel-status">작업 상태</button>
+        <button type="button" class="os-menu-item" data-panel-target="panel-workspace">작업 공간</button>
+        <button id="settings-toggle" type="button" class="os-menu-item">설정</button>
+        <div class="os-menu-divider"></div>
+        <button id="fullscreen-toggle" type="button" class="os-menu-item">전체화면 HUD</button>
       </div>
-
-      <section class="command-card mission-panel">
-        <div class="panel-heading">
-          <span>프로젝트</span>
-          <span class="panel-code">MISSION CONTROL</span>
-        </div>
-        <label class="sr-only" for="history-search">대화 기록 검색</label>
-        <input id="history-search" class="history-search" type="text" placeholder="대화/프로젝트 검색  /  Ctrl+K" autocomplete="off" />
-
-        <div id="history-scroll" class="history-scroll">
-          <div class="tree-section-header">
-            <span class="tree-section-title">작업 프로젝트</span>
-            <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기">+</button>
-          </div>
-          <input id="new-project-input" class="new-project-input" type="text"
-                 placeholder="새 프로젝트 이름 입력 후 Enter" autocomplete="off" hidden />
-          <div id="project-groups" class="tree-groups"></div>
-
-          <div class="tree-section-header secondary-section">
-            <span class="tree-section-title">일반 대화</span>
-          </div>
-          <div id="general-groups" class="tree-groups"></div>
-
-          <ul id="search-results" class="history-list" hidden></ul>
-        </div>
-        <div id="history-empty" class="history-empty" hidden>아직 저장된 대화가 없습니다.</div>
-      </section>
-
-      <section class="command-card mini-telemetry" aria-label="시스템 상태">
-        <div class="panel-heading">
-          <span>상태</span>
-          <span class="status-dot online">ONLINE</span>
-        </div>
-        <div class="telemetry-grid">
-          <div><span>CORE</span><strong id="system-state-badge">대기</strong></div>
-          <div><span>MODE</span><strong>로컬</strong></div>
-          <div><span>LINK</span><strong>Claude</strong></div>
-          <div><span>TIME</span><strong id="system-clock">--:--</strong></div>
-        </div>
-      </section>
-
-      <div id="settings-panel" class="settings-panel" hidden>
-        <div class="settings-panel-arrow"></div>
-        <button id="theme-toggle" class="settings-item" type="button">
-          <span>테마 변경</span>
-          <span id="theme-toggle-label" class="settings-value">다크 ☾</span>
-        </button>
-        <button id="usage-link-btn" class="settings-item" type="button">
-          <span>Claude 사용량 보기</span>
-          <span class="settings-value">열기 ↗</span>
-        </button>
-        <button id="export-btn" class="settings-item" type="button">
-          <span>현재 대화 내보내기</span>
-          <span class="settings-value">저장 ↓</span>
-        </button>
-        <button id="check-update-btn" class="settings-item" type="button">
-          <span>업데이트 확인</span>
-          <span id="update-status" class="settings-value"></span>
-        </button>
-        <div class="settings-divider"></div>
-        <button id="clear-history-btn" class="settings-item danger" type="button">
-          <span>전체 기록 삭제</span>
-          <span class="settings-value">삭제</span>
-        </button>
-      </div>
-    </aside>
+    </div>
 
     <main class="main command-center" aria-label="AI 대화 작업공간">
-      <header class="top-command-bar command-card compact">
-        <div class="top-left">
-          <span class="micro-label">AI CORE INTERFACE</span>
-          <strong>로컬 작업 콘솔</strong>
-        </div>
-        <div class="top-status" aria-live="polite">
-          <span class="status-pill"><span class="status-led"></span>시스템 온라인</span>
-          <button id="fullscreen-toggle" class="hud-btn" type="button" title="전체화면 HUD 모드">전체화면 HUD ⛶</button>
-        </div>
-      </header>
-
       <section class="stage command-card" aria-label="CAELUS AI Core">
         <div class="hud-corner tl"></div>
         <div class="hud-corner tr"></div>
@@ -180,24 +108,65 @@
       </form>
     </main>
 
-    <aside class="right-panel system-deck" aria-label="작업 상태와 워크스페이스">
-      <section class="command-card activity-panel">
-        <div class="panel-heading">
-          <span>작업 상태</span>
-          <span class="panel-code">SYSTEM ACTIVITY</span>
+    <!-- 아래는 전부 기본 숨김 — 메뉴에서 열기 전까지는 화면에 없다. -->
+    <div id="panel-projects" class="floating-panel command-card" hidden aria-label="프로젝트와 대화 기록">
+      <div class="floating-panel-head">
+        <span>프로젝트</span>
+        <span class="panel-code">MISSION CONTROL</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <label class="sr-only" for="history-search">대화 기록 검색</label>
+        <input id="history-search" class="history-search" type="text" placeholder="대화/프로젝트 검색  /  Ctrl+K" autocomplete="off" />
+
+        <div id="history-scroll" class="history-scroll">
+          <div class="tree-section-header">
+            <span class="tree-section-title">작업 프로젝트</span>
+            <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기">+</button>
+          </div>
+          <input id="new-project-input" class="new-project-input" type="text"
+                 placeholder="새 프로젝트 이름 입력 후 Enter" autocomplete="off" hidden />
+          <div id="project-groups" class="tree-groups"></div>
+
+          <div class="tree-section-header secondary-section">
+            <span class="tree-section-title">일반 대화</span>
+          </div>
+          <div id="general-groups" class="tree-groups"></div>
+
+          <ul id="search-results" class="history-list" hidden></ul>
+        </div>
+        <div id="history-empty" class="history-empty" hidden>아직 저장된 대화가 없습니다.</div>
+      </div>
+    </div>
+
+    <div id="panel-status" class="floating-panel command-card" hidden aria-label="시스템 상태">
+      <div class="floating-panel-head">
+        <span>작업 상태</span>
+        <span class="panel-code">SYSTEM ACTIVITY</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <div class="telemetry-grid">
+          <div><span>CORE</span><strong id="system-state-badge">대기</strong></div>
+          <div><span>MODE</span><strong>로컬</strong></div>
+          <div><span>LINK</span><strong>Claude</strong></div>
+          <div><span>TIME</span><strong id="system-clock">--:--</strong></div>
         </div>
         <div class="activity-list" aria-hidden="true">
           <div class="activity-row active"><span></span><div><strong>분석 대기</strong><small>프로젝트 구조 확인</small></div></div>
           <div class="activity-row"><span></span><div><strong>작업 연결</strong><small>Claude Code bridge</small></div></div>
           <div class="activity-row"><span></span><div><strong>응답 스트림</strong><small>실시간 출력 채널</small></div></div>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <section class="command-card file-panel">
-        <div class="panel-heading">
-          <span>작업 공간</span>
-          <span class="panel-code">LOCAL WORKSPACE</span>
-        </div>
+    <div id="panel-workspace" class="floating-panel command-card" hidden aria-label="작업 공간">
+      <div class="floating-panel-head">
+        <span>작업 공간</span>
+        <span class="panel-code">LOCAL WORKSPACE</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
         <div class="file-tree" aria-hidden="true">
           <div>▸ 프로젝트</div>
           <div class="indent">├─ 현재 작업</div>
@@ -206,16 +175,40 @@
           <div>▸ Claude 연결</div>
           <div>▸ 명령 스트림</div>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <section class="command-card protocol-panel">
-        <div class="panel-heading">
-          <span>안전 모드</span>
-          <span class="panel-code">LOCAL FIRST</span>
-        </div>
-        <p>기존 Claude Code 실행, 프로젝트 저장, IPC 흐름은 유지하고 화면 레이어만 개선했습니다.</p>
-      </section>
-    </aside>
+    <div id="settings-panel" class="floating-panel command-card" hidden aria-label="설정">
+      <div class="floating-panel-head">
+        <span>설정</span>
+        <span class="panel-code">LOCAL FIRST</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <button id="theme-toggle" class="settings-item" type="button">
+          <span>테마 변경</span>
+          <span id="theme-toggle-label" class="settings-value">다크 ☾</span>
+        </button>
+        <button id="usage-link-btn" class="settings-item" type="button">
+          <span>Claude 사용량 보기</span>
+          <span class="settings-value">열기 ↗</span>
+        </button>
+        <button id="export-btn" class="settings-item" type="button">
+          <span>현재 대화 내보내기</span>
+          <span class="settings-value">저장 ↓</span>
+        </button>
+        <button id="check-update-btn" class="settings-item" type="button">
+          <span>업데이트 확인</span>
+          <span id="update-status" class="settings-value"></span>
+        </button>
+        <div class="settings-divider"></div>
+        <button id="clear-history-btn" class="settings-item danger" type="button">
+          <span>전체 기록 삭제</span>
+          <span class="settings-value">삭제</span>
+        </button>
+        <p class="settings-note">기존 Claude Code 실행, 프로젝트 저장, IPC 흐름은 그대로이고 화면 레이어만 창 형태로 바뀌었습니다.</p>
+      </div>
+    </div>
   </div>
 
   <script src="renderer.js"></script>

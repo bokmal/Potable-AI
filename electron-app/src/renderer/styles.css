@@ -70,14 +70,16 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.45; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
+/* 화면엔 기본적으로 AI 코어 + 대화 하나만 존재한다 — 프로젝트/상태/작업
+   공간/설정은 전부 좌상단 메뉴에서 필요할 때만 띄우는 "떠 있는 창"이다
+   (아래 .os-menu / .floating-panel). .app 자체는 그 창들을 얹어두는
+   빈 데스크톱일 뿐이라, 가운데로 .main만 정렬한다. */
 .app {
   position: relative;
   height: 100vh;
   padding: 14px;
-  display: grid;
-  grid-template-columns: 292px minmax(420px, 1fr) 292px;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 14px;
+  display: flex;
+  justify-content: center;
   isolation: isolate;
 }
 
@@ -139,14 +141,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .command-card.compact { border-radius: var(--radius-md); }
 
-.sidebar, .right-panel, .main { position: relative; z-index: 1; min-width: 0; }
-.sidebar, .right-panel { display: grid; gap: 12px; min-height: 0; }
-.sidebar { grid-template-rows: auto minmax(0, 1fr) auto; }
-.right-panel { grid-template-rows: auto minmax(0, 1fr) auto; }
-.main { display: grid; grid-template-rows: auto 280px minmax(0, 1fr) auto auto; gap: 12px; min-height: 0; }
+.main { position: relative; z-index: 1; min-width: 0; width: 100%; max-width: 760px; display: grid; grid-template-rows: var(--idle-stage-row, 280px) minmax(0, 1fr) auto auto; gap: 12px; min-height: 0; }
 
-.brand { display: flex; align-items: center; justify-content: space-between; padding: 14px; }
-.brand-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand-mark {
   width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto;
   border-radius: 50%; color: var(--idle);
@@ -155,13 +151,79 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   text-shadow: 0 0 18px currentColor;
   box-shadow: 0 0 26px rgba(93,232,255,0.16), inset 0 0 22px rgba(93,232,255,0.09);
 }
-.brand-kicker, .micro-label, .panel-heading, .command-prefix, .mode-hint, .h-meta, .tree-section-title, .panel-code, .stage-header {
+.panel-heading, .command-prefix, .mode-hint, .h-meta, .tree-section-title, .panel-code, .stage-header {
   font-family: var(--font-mono);
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
-.brand-kicker { display: block; color: var(--text-faint); font-size: 10px; }
-.brand-name { display: block; font-family: var(--font-mono); font-size: 22px; font-weight: 800; letter-spacing: 0.16em; color: var(--text); }
+
+/* --- 좌상단 메뉴: 이 앱에서 항상 떠 있는 유일한 상시 UI --- */
+.os-menu { position: fixed; top: 18px; left: 18px; z-index: 50; }
+.os-menu-trigger {
+  display: flex; align-items: center; gap: 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 16px 6px 6px;
+  background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+}
+.os-menu-trigger .brand-mark { width: 30px; height: 30px; font-size: 15px; }
+.os-menu-trigger-label { font-family: var(--font-mono); font-weight: 800; letter-spacing: 0.16em; font-size: 13px; }
+.os-menu-list {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 210px;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgba(4, 10, 19, 0.96);
+  box-shadow: var(--shadow-float), 0 0 35px rgba(93,232,255,0.08);
+  backdrop-filter: blur(18px);
+}
+:root[data-theme="light"] .os-menu-list { background: rgba(255,255,255,0.96); }
+.os-menu-list[hidden] { display: none; }
+.os-menu-item {
+  width: 100%; text-align: left; border: none; background: transparent; color: var(--text);
+  padding: 10px 12px; border-radius: 11px; font-size: 13px; font-weight: 600;
+}
+.os-menu-item:hover { background: rgba(93,232,255,0.1); color: var(--text); }
+.os-menu-divider { height: 1px; margin: 5px 4px; background: var(--line); }
+
+/* --- 떠 있는 창들(프로젝트/상태/작업 공간/설정) — 메뉴에서 열고 닫으며,
+   여러 개를 동시에 띄워둘 수 있고 헤더를 드래그해서 옮길 수 있다. 실제
+   위치 이동/맨 앞으로 가져오기는 renderer.js가 담당하고, 여기서는 뼈대와
+   기본(첫 오픈) 위치만 정의한다. */
+.floating-panel {
+  position: fixed;
+  z-index: 30;
+  width: 300px;
+  max-height: min(72vh, 540px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.floating-panel[hidden] { display: none; }
+.floating-panel-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 8px 12px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+}
+.floating-panel-head:active { cursor: grabbing; }
+.floating-panel-head .panel-code { margin-left: auto; }
+.floating-panel-close {
+  border: none; background: transparent; color: var(--text-faint); cursor: pointer;
+  width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; font-size: 12px;
+}
+.floating-panel-close:hover { color: var(--error); background: rgba(255,100,125,0.1); }
+.floating-panel-body { min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+#panel-projects { top: 70px; left: 18px; }
+#panel-status { top: 70px; left: 336px; }
+#panel-workspace { top: 70px; left: 654px; }
+#settings-panel.floating-panel { top: 70px; right: 18px; left: auto; width: 260px; }
 
 .icon-btn, .hud-btn, .text-btn, .preset-btn, .mode-btn, .cancel-btn, .command-submit, .settings-item, .tg-action, .h-delete, .h-rename, .bubble-copy {
   border: 1px solid var(--line);
@@ -259,30 +321,12 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .telemetry-grid span { display: block; color: var(--text-faint); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; margin-bottom: 5px; }
 .telemetry-grid strong { color: var(--text); font-size: 13px; }
 
-.settings-panel {
-  position: absolute;
-  top: 72px;
-  right: 14px;
-  width: 236px;
-  z-index: 10;
-  padding: 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: rgba(4, 10, 19, 0.96);
-  box-shadow: var(--shadow-float), 0 0 35px rgba(93,232,255,0.08);
-  backdrop-filter: blur(18px);
-}
-:root[data-theme="light"] .settings-panel { background: rgba(255,255,255,0.96); }
-.settings-panel-arrow { position: absolute; top: -7px; right: 18px; width: 12px; height: 12px; transform: rotate(45deg); border-left: 1px solid var(--line-strong); border-top: 1px solid var(--line-strong); background: inherit; }
-.settings-item { width: 100%; min-height: 42px; padding: 0 11px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; margin: 4px 0; }
+/* #settings-panel은 이제 .floating-panel과 같은 뼈대(위치/그림자/드래그)를
+   쓴다 — 안쪽 콘텐츠 스타일만 여기 남긴다. */
+.settings-item { width: 100%; min-height: 42px; padding: 0 11px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
 .settings-value { color: var(--idle); font-family: var(--font-mono); font-size: 10px; }
-.settings-divider { height: 1px; margin: 8px 4px; background: var(--line); }
-
-.top-command-bar { padding: 13px 15px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.top-left { display: grid; gap: 3px; }
-.micro-label { color: var(--idle); font-size: 10px; }
-.top-left strong { font-size: 16px; letter-spacing: -0.02em; }
-.top-status { display: inline-flex; align-items: center; gap: 8px; }
+.settings-divider { height: 1px; margin: 4px; background: var(--line); }
+.settings-note { color: var(--text-muted); font-size: 12px; line-height: 1.6; padding: 2px 2px 0; }
 
 .stage { padding: 16px; overflow: hidden; }
 .stage::after {
@@ -431,23 +475,15 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 
-@media (max-width: 1180px) {
-  body { min-width: 820px; }
-  .app { grid-template-columns: 260px minmax(380px, 1fr); }
-  .right-panel { display: none; }
-  .main { grid-template-rows: auto 250px minmax(0, 1fr) auto auto; }
-}
-
 @media (max-width: 860px) {
   body { min-width: 0; overflow: auto; }
-  .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; grid-template-rows: auto auto; }
-  .sidebar { grid-template-rows: auto auto auto; }
-  .main { min-height: 720px; grid-template-rows: auto 250px minmax(320px, 1fr) auto auto; }
-  .right-panel { display: grid; }
-  .top-command-bar, .control-strip, .command-bar { grid-template-columns: 1fr; display: grid; align-items: stretch; }
-  .top-status, .preset-row { justify-content: stretch; }
+  .app { height: auto; min-height: 100vh; padding: 12px; }
+  .main { min-height: 720px; }
+  .control-strip, .command-bar { grid-template-columns: 1fr; display: grid; align-items: stretch; }
+  .preset-row { justify-content: stretch; }
   .preset-btn, .hud-btn, .text-btn, .mode-btn { width: 100%; }
   .mode-toggle { grid-template-columns: 1fr; }
+  .floating-panel { width: calc(100vw - 36px); max-width: 340px; }
 }
 
 /* =====================================================================
@@ -467,7 +503,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 body[data-ui-phase="active"] .main {
-  grid-template-rows: auto var(--active-stage-row) minmax(0, 1fr) auto auto;
+  grid-template-rows: var(--active-stage-row) minmax(0, 1fr) auto auto;
 }
 
 .stage {
@@ -541,20 +577,17 @@ body[data-ui-phase="active"] .core-caption strong {
   animation: core-burst 0.9s ease-out;
 }
 
-/* 대화가 활성화되면 좌우 패널은 살짝 존재감을 낮춰서 시선이 대화창으로
-   가게 하고, 마우스를 올리면 바로 다시 또렷해진다. */
-.sidebar,
-.right-panel {
+/* 대화가 활성화된 동안 열려 있는 창(플로팅 패널)이 있다면 살짝 존재감을
+   낮춰서 시선이 대화창으로 가게 하고, 마우스를 올리면 바로 다시
+   또렷해진다. */
+.floating-panel {
   transition: opacity 0.4s ease;
 }
-body[data-ui-phase="active"] .sidebar,
-body[data-ui-phase="active"] .right-panel {
-  opacity: 0.85;
+body[data-ui-phase="active"] .floating-panel {
+  opacity: 0.88;
 }
-body[data-ui-phase="active"] .sidebar:hover,
-body[data-ui-phase="active"] .sidebar:focus-within,
-body[data-ui-phase="active"] .right-panel:hover,
-body[data-ui-phase="active"] .right-panel:focus-within {
+body[data-ui-phase="active"] .floating-panel:hover,
+body[data-ui-phase="active"] .floating-panel:focus-within {
   opacity: 1;
 }
 
@@ -568,14 +601,12 @@ body[data-ui-phase="active"] .right-panel:focus-within {
 
 body:fullscreen .app,
 body.fullscreen-hud .app {
-  padding: 18px;
-  grid-template-columns: 300px minmax(520px, 1fr) 300px;
-  gap: 16px;
+  padding: 24px;
 }
-body.fullscreen-hud .top-command-bar,
-body:fullscreen .top-command-bar { border-color: rgba(91,231,255,0.38); }
-body.fullscreen-hud .main,
-body:fullscreen .main { grid-template-rows: auto 360px minmax(0, 1fr) auto auto; }
+body:fullscreen .main,
+body.fullscreen-hud .main {
+  max-width: 900px;
+}
 body.fullscreen-hud .stage,
 body:fullscreen .stage { box-shadow: 0 0 95px rgba(89,231,255,0.11), var(--shadow-float); }
 body.fullscreen-hud .jarvis-ring,
