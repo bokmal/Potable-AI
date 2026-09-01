@@ -58,7 +58,19 @@ REM --- Electron 앱(CAELUS UI) 실행 ---
 pushd "%USB_ROOT%\electron-app"
 
 if exist "node_modules\.bin\electron.cmd" (
+    if not exist "node_modules\electron\dist\electron.exe" (
+        echo [경고] Electron 실행 파일^(node_modules\electron\dist\electron.exe^)이 없습니다.
+        echo        "npm install" 중 Electron 바이너리 다운로드가 실패했을 수 있습니다.
+        echo        electron-app 폴더에서 "npm install" 을 다시 실행해보세요.
+        echo.
+    )
     call node_modules\.bin\electron.cmd .
+    if !errorlevel! neq 0 (
+        echo.
+        echo [오류] CAELUS 앱이 오류 코드 !errorlevel! 로 종료되었습니다.
+        echo        위 로그를 확인해주세요.
+        pause
+    )
 ) else (
     echo [안내] electron-app 의 의존성이 아직 설치되지 않았습니다.
     echo        인터넷이 연결된 환경에서 최초 1회 다음을 실행해주세요:
