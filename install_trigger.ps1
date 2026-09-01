@@ -163,9 +163,16 @@ foreach (`$disk in `$disks) {
         CommandLineTemplate = "schtasks.exe /run /tn `"$taskName`""
     }
 
+    # __FilterToConsumerBinding의 Filter/Consumer는 REF(참조) 타입이라,
+    # New-CimInstance에는 객체가 아니라 "클래스.Name=값" 형식의 WMI 경로
+    # 문자열로 넘겨야 한다(객체를 그대로 넘기면 "Consumer 속성과 형식이
+    # 일치하지 않습니다" 오류가 난다).
+    $filterPath = "__EventFilter.Name=`"$filterName`""
+    $consumerPath = "CommandLineEventConsumer.Name=`"$consumerName`""
+
     New-CimInstance -Namespace root/subscription -ClassName __FilterToConsumerBinding -Property @{
-        Filter   = $filter
-        Consumer = $consumer
+        Filter   = $filterPath
+        Consumer = $consumerPath
     } | Out-Null
 
     Write-Host "[완료] WMI 구독 등록됨 ('$filterName' → '$consumerName')."
