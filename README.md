@@ -143,15 +143,25 @@ JSON으로 저장된다 (`electron-app/src/main/store.js`). 자세한 내용은
       같은 PC에서의 중복 실행을 막았다(락은 USB가 아니라 그 PC의 실제
       Windows 프로필에 저장되므로, 여러 PC에서 각자 쓰는 정상적인 사용에는
       영향 없다) (`main.js`).
-- [x] **(실제 확인됨, 수정함)** `setup.bat`으로 등록한 자동실행이 실제로는
-      한 번도 발동하지 않는 문제가 있었다 — 원래 쓰던 트리거 이벤트(Event
-      ID 2003, "USB 드라이버 설치 완료")가 UASP 기반 포터블 SSD에서는 아예
-      발생하지 않는 것으로 확인됐다(`Get-WinEvent`로 확인 시 해당 이벤트
-      자체가 없었음). 장치 종류와 무관하게 항상 발생하는 볼륨 마운트 이벤트
-      (`Win32_VolumeChangeEvent`, WMI 영구 구독)로 바꿔 해결했다
-      (`install_trigger.ps1`). **이 수정 이후 `setup.bat`을 다시 실행해야
-      기존 PC에도 반영된다** — 예전에 이미 `setup.bat`을 돌린 PC가 있다면
-      한 번 더 실행해서 재등록해야 한다.
+- [x] **(실제 Windows PC에서 종단간 검증 완료)** `setup.bat` 자동실행 등록 →
+      USB 재삽입 → CAELUS 자동 실행까지 사람 개입 없이 동작하는 것을 실제
+      하드웨어에서 확인함. 여기까지 오는 데 네 가지 문제를 실사용 중
+      순서대로 발견해 고쳤다:
+      1. 원래 쓰던 트리거 이벤트(Event ID 2003, "USB 드라이버 설치 완료")가
+         UASP 기반 포터블 SSD에서는 아예 발생하지 않음 → 장치 종류와 무관한
+         볼륨 마운트 이벤트(`Win32_VolumeChangeEvent`, WMI 영구 구독)로 교체.
+      2. `New-CimInstance`로 WMI 필터/컨슈머를 바인딩할 때 참조(REF) 타입
+         프로퍼티 처리가 실패함 → 레거시 `Set-WmiInstance`로 교체.
+      3. 예약 작업 인자에 로직을 `-EncodedCommand`(base64)로 통째로 넣었더니
+         Task Scheduler의 인자 길이 제한에 걸려 조용히 잘림(등록은 성공,
+         실행 시 실패) → 이 PC의 `%ProgramData%\CAELUS\`에 실제 .ps1 파일로
+         저장하고 짧은 `-File` 인자로 가리키는 방식으로 교체.
+      4. `Split-Path -LiteralPath ... -Parent` 조합이 매개변수 충돌 오류를 냄
+         (그런데 예약 작업 종료 코드는 0으로 나와 원인 파악이 까다로웠다)
+         → `-Parent`는 기본 동작이라 제거.
+      (`install_trigger.ps1`, `find_usb_by_serial.ps1`) **이 수정들 이후
+      `setup.bat`을 다시 실행해야 기존 PC에도 반영된다** — 예전에 이미
+      `setup.bat`을 돌린 PC가 있다면 한 번 더 실행해서 재등록해야 한다.
 - [ ] 회사/공용 PC 그룹정책으로 작업 스케줄러 등록이 차단되는 경우의
       수동 실행 폴백은 구현되어 있으나, 실제 그런 환경에서의 검증 필요.
 - [ ] 안티바이러스가 포터블 `node.exe`를 오탐할 수 있음 → 화이트리스트 등록 안내 필요.
