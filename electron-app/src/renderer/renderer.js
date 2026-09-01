@@ -29,6 +29,29 @@ const threadWarning = document.getElementById('thread-warning');
 const resumeBanner = document.getElementById('resume-banner');
 const resumeThreadBtn = document.getElementById('resume-thread-btn');
 
+// --- 커맨드 센터 UI (인스펙터 / 상단바 / 전체화면) 참조 ---
+// 이 섹션의 엘리먼트는 전부 "표시용"이다 — 여기 값을 읽거나 바꾸는 게 실제
+// 동작(전송/취소/프로젝트 관리 등)에 영향을 주지 않고, 기존 상태를 그대로
+// 반영만 한다. 새 IPC는 추가하지 않았다.
+const inspectorState = document.getElementById('inspector-state');
+const inspectorProject = document.getElementById('inspector-project');
+const inspectorMode = document.getElementById('inspector-mode');
+const inspectorThread = document.getElementById('inspector-thread');
+const inspectorStream = document.getElementById('inspector-stream');
+const inspectorSurfaceProject = document.getElementById('inspector-surface-project');
+const activityFeed = document.getElementById('activity-feed');
+const topbarProjectName = document.getElementById('topbar-project-name');
+const fullscreenToggle = document.getElementById('fullscreen-toggle');
+
+function pushActivity(label, detail) {
+  if (!activityFeed) return;
+  const item = document.createElement('div');
+  item.className = 'activity-item';
+  item.innerHTML = `<span>${escapeHtml(label)}</span><small>${escapeHtml(detail || '')}</small>`;
+  activityFeed.prepend(item);
+  while (activityFeed.children.length > 6) activityFeed.lastElementChild.remove();
+}
+
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
 // 보인다. try/catch를 안 붙인 async 핸들러가 하나라도 있으면 재현이
@@ -39,16 +62,19 @@ window.addEventListener('unhandledrejection', (event) => {
   alert(`예상치 못한 오류가 발생했습니다:\n${message}`);
 });
 
+// UI 크롬(상태 라벨/버튼/헤더)은 커맨드 센터 컨셉에 맞춰 영어로 표시하고,
+// 실제 대화 내용과 경고/확인 문구처럼 사용자가 정확히 이해해야 하는 설명
+// 문장은 계속 한국어로 남긴다(아래 alert/confirm 문구들이 그 예).
 const STATE_LABEL = {
-  idle: '대기 중',
-  listening: '입력 처리 중',
-  response: '응답 완료',
-  error: '오류 발생',
+  idle: 'AWAITING INSTRUCTION',
+  listening: 'PROCESSING COMMAND',
+  response: 'RESPONSE COMPLETE',
+  error: 'SYSTEM ERROR',
 };
 
 const MODE_LABEL = {
-  chat: '대화',
-  code: '코딩',
+  chat: 'CHAT',
+  code: 'CODE',
 };
 
 // 대화 한 스레드가 이 턴 수 이상이면 "길어졌다" 안내를 보여준다. 실제 토큰
@@ -97,7 +123,7 @@ try {
 function applyTheme(theme) {
   currentTheme = theme;
   document.documentElement.setAttribute('data-theme', theme);
-  themeToggleLabel.textContent = theme === 'light' ? '라이트 ☀' : '다크 ☾';
+  themeToggleLabel.textContent = theme === 'light' ? 'LIGHT ☀' : 'DARK ☾';
   try {
     localStorage.setItem('caelus-theme', theme);
   } catch {
@@ -134,6 +160,7 @@ try {
 function setMode(mode) {
   currentMode = mode;
   modeButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.mode === mode));
+  if (inspectorMode) inspectorMode.textContent = MODE_LABEL[mode] || mode.toUpperCase();
   try {
     localStorage.setItem('caelus-mode', mode);
   } catch {
@@ -149,6 +176,14 @@ setMode(currentMode);
 function setState(state) {
   ring.className = `jarvis-ring ${state}`;
   statusText.textContent = STATE_LABEL[state] || state;
+  if (inspectorState) {
+    inspectorState.textContent = state === 'idle' ? 'READY' : (STATE_LABEL[state] || state).split(' ')[0];
+    inspectorState.classList.toggle('is-busy', state === 'listening');
+    inspectorState.classList.toggle('is-error', state === 'error');
+  }
+  if (inspectorStream && state !== 'listening') {
+    inspectorStream.textContent = 'IDLE';
+  }
 }
 
 function playBeep(kind) {
@@ -223,12 +258,12 @@ function addBubble(role, text) {
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
     copyBtn.className = 'bubble-copy';
-    copyBtn.textContent = '복사';
+    copyBtn.textContent = 'COPY';
     copyBtn.addEventListener('click', async () => {
       await window.caelus.copyText(contentEl.dataset.raw || '');
-      copyBtn.textContent = '복사됨';
+      copyBtn.textContent = 'COPIED';
       setTimeout(() => {
-        copyBtn.textContent = '복사';
+        copyBtn.textContent = 'COPY';
       }, 1500);
     });
     el.appendChild(copyBtn);
@@ -250,7 +285,7 @@ function clearConversation() {
 // 프로젝트(작업 폴더) — 사이드바 트리에 쓰일 이름/라벨 유틸
 // ===================================================================
 function projectLabel(name) {
-  return name === DEFAULT_PROJECT_NAME ? '일반 (자동 정리함)' : name;
+  return name === DEFAULT_PROJECT_NAME ? 'GENERAL (auto-sorted)' : name;
 }
 
 async function loadProjects() {
@@ -752,10 +787,19 @@ newProjectInput.addEventListener('blur', hideNewProjectInput);
 // ===================================================================
 async function refreshThreadStatus() {
   const info = await window.caelus.getThreadInfo(activeProject);
-  const turnLabel = info.turnCount > 0 ? ` · ${info.turnCount}번째 메시지` : '';
+  const turnLabel = info.turnCount > 0 ? ` · MSG ${info.turnCount}` : '';
   threadStatusLabel.textContent = `\u{1F4C1} ${projectLabel(activeProject)}${turnLabel}`;
   threadWarning.hidden = info.turnCount < LONG_THREAD_TURN_THRESHOLD;
   newThreadBtn.disabled = isBusy;
+
+  // 우측 인스펙터/상단 바 동기화 — 새 IPC 없이, 이미 조회한 값만 반영한다.
+  const projectDisplay = projectLabel(activeProject).toUpperCase();
+  if (inspectorProject) inspectorProject.textContent = projectDisplay;
+  if (inspectorSurfaceProject) inspectorSurfaceProject.textContent = activeProject;
+  if (topbarProjectName) topbarProjectName.textContent = projectDisplay;
+  if (inspectorThread) {
+    inspectorThread.textContent = info.turnCount > 0 ? `ACTIVE · ${info.turnCount}` : 'NEW';
+  }
   return info;
 }
 
@@ -816,15 +860,15 @@ exportBtn.addEventListener('click', async () => {
 // 자체 업데이트 확인 (자동 pull은 하지 않음 — 확인만)
 // ===================================================================
 checkUpdateBtn.addEventListener('click', async () => {
-  updateStatus.textContent = '확인 중...';
+  updateStatus.textContent = 'CHECKING...';
   const result = await window.caelus.checkUpdate();
   if (!result.checked) {
-    updateStatus.textContent = '확인 실패 (오프라인?)';
+    updateStatus.textContent = 'FAILED (OFFLINE?)';
     return;
   }
   updateStatus.textContent = result.updateAvailable
-    ? `업데이트 ${result.commitsBehind}개 있음 — git pull 하세요`
-    : '최신 버전입니다';
+    ? `${result.commitsBehind} BEHIND — git pull`
+    : 'UP TO DATE';
 });
 
 // ===================================================================
@@ -838,15 +882,21 @@ function setBusy(busy) {
   newThreadBtn.disabled = busy;
 }
 
-window.caelus.onStatus(({ state, taskId }) => {
+window.caelus.onStatus(({ state, taskId, message }) => {
   clearTimeout(idleTimer);
   setState(state);
   if (state === 'listening') {
     pendingTaskId = taskId;
     streamedText = '';
   }
-  if (state === 'response') playBeep('response');
-  if (state === 'error') playBeep('error');
+  if (state === 'response') {
+    playBeep('response');
+    pushActivity('RESPONSE COMPLETE', activeProject);
+  }
+  if (state === 'error') {
+    playBeep('error');
+    pushActivity('SYSTEM ERROR', message || '');
+  }
   if (state === 'response' || state === 'error') {
     idleTimer = setTimeout(() => setState('idle'), 4000);
   }
@@ -854,7 +904,11 @@ window.caelus.onStatus(({ state, taskId }) => {
 
 window.caelus.onStream(({ taskId, chunk }) => {
   if (taskId !== pendingTaskId) return;
-  if (!pendingBubble) pendingBubble = addBubble('assistant', '');
+  if (!pendingBubble) {
+    pendingBubble = addBubble('assistant', '');
+    if (inspectorStream) inspectorStream.textContent = 'STREAMING';
+    pushActivity('STREAMING', 'Claude Code response');
+  }
   streamedText += chunk;
   setBubbleContent(pendingBubble.contentEl, 'assistant', streamedText);
   conversation.scrollTop = conversation.scrollHeight;
@@ -884,6 +938,7 @@ form.addEventListener('submit', async (event) => {
   addBubble('user', text);
   input.value = '';
   setBusy(true);
+  pushActivity('COMMAND SENT', projectLabel(activeProject));
 
   try {
     const result = await window.caelus.sendCommand(text, currentMode, activeProject);
@@ -922,6 +977,27 @@ document.addEventListener('keydown', (event) => {
       input.value = '';
     }
   }
+});
+
+// ===================================================================
+// 전체화면 HUD 모드 — 렌더러(Fullscreen API)만으로 처리, BrowserWindow는
+// 안 건드린다. 일반 창 모드로도, 전체화면으로도 각각 어울리게 CSS의
+// body.is-fullscreen 규칙이 담당한다(styles.css 참고).
+// ===================================================================
+if (fullscreenToggle) {
+  fullscreenToggle.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // 전체화면 API가 막힌 환경(권한/플랫폼 제약)이면 조용히 무시 —
+        // 일반 창 모드로도 완전히 동작하므로 치명적이지 않다.
+      });
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  });
+}
+document.addEventListener('fullscreenchange', () => {
+  document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement);
 });
 
 // ===================================================================

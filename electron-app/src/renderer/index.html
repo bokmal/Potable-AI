@@ -7,119 +7,185 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
+    <header class="topbar">
+      <div class="topbar-brand">
         <span class="brand-mark">&#9678;</span>
         <span class="brand-name">CAELUS</span>
-        <button id="settings-toggle" class="icon-btn" type="button" title="설정">&#9881;</button>
       </div>
+      <div class="topbar-core">
+        <span class="topbar-core-dot"></span>
+        <span class="topbar-core-label">CORE ONLINE</span>
+      </div>
+      <div class="topbar-project">
+        <span class="topbar-project-key">PROJECT</span>
+        <span class="topbar-project-value" id="topbar-project-name">GENERAL</span>
+      </div>
+      <button id="fullscreen-toggle" class="topbar-btn" type="button" title="전체화면 HUD 전환">
+        <span class="topbar-btn-icon">&#9974;</span> FULL
+      </button>
+    </header>
 
-      <div class="sidebar-label">작업 기록</div>
-      <input id="history-search" class="history-search" type="text" placeholder="기록 검색  (Ctrl+K)" autocomplete="off" />
-
-      <div id="history-scroll" class="history-scroll">
-        <div class="tree-section-header">
-          <span class="tree-section-title">프로젝트</span>
-          <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 폴더 만들기">&#43;</button>
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark small">&#9678;</span>
+          <span class="sidebar-brand-name">MISSION CONTROL</span>
+          <button id="settings-toggle" class="icon-btn" type="button" title="설정">&#9881;</button>
         </div>
-        <input id="new-project-input" class="new-project-input" type="text"
-               placeholder="새 프로젝트 이름, Enter로 생성" autocomplete="off" hidden />
-        <div id="project-groups" class="tree-groups"></div>
 
-        <div class="tree-section-header">
-          <span class="tree-section-title">기타 대화</span>
+        <div class="sidebar-label">MISSION LOG</div>
+        <input id="history-search" class="history-search" type="text" placeholder="기록 검색  (Ctrl+K)" autocomplete="off" />
+
+        <div id="history-scroll" class="history-scroll">
+          <div class="tree-section-header">
+            <span class="tree-section-title">PROJECTS</span>
+            <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 폴더 만들기">&#43;</button>
+          </div>
+          <input id="new-project-input" class="new-project-input" type="text"
+                 placeholder="새 프로젝트 이름, Enter로 생성" autocomplete="off" hidden />
+          <div id="project-groups" class="tree-groups"></div>
+
+          <div class="tree-section-header">
+            <span class="tree-section-title">GENERAL THREADS</span>
+          </div>
+          <div id="general-groups" class="tree-groups"></div>
+
+          <ul id="search-results" class="history-list" hidden></ul>
         </div>
-        <div id="general-groups" class="tree-groups"></div>
+        <div id="history-empty" class="history-empty" hidden>NO MISSION LOGS YET</div>
 
-        <ul id="search-results" class="history-list" hidden></ul>
-      </div>
-      <div id="history-empty" class="history-empty" hidden>아직 기록이 없습니다</div>
+        <div id="settings-panel" class="settings-panel" hidden>
+          <div class="settings-panel-arrow"></div>
+          <button id="theme-toggle" class="settings-item" type="button">
+            <span>THEME</span>
+            <span id="theme-toggle-label" class="settings-value">DARK &#9789;</span>
+          </button>
+          <button id="usage-link-btn" class="settings-item" type="button">
+            <span>USAGE</span>
+            <span class="settings-value">OPEN &#8599;</span>
+          </button>
+          <button id="export-btn" class="settings-item" type="button">
+            <span>EXPORT LOG</span>
+            <span class="settings-value">&#8595;</span>
+          </button>
+          <button id="check-update-btn" class="settings-item" type="button">
+            <span>CHECK UPDATE</span>
+            <span id="update-status" class="settings-value"></span>
+          </button>
+          <div class="settings-divider"></div>
+          <button id="clear-history-btn" class="settings-item danger" type="button">
+            <span>CLEAR MISSION LOG</span>
+            <span class="settings-value">&#128465;</span>
+          </button>
+        </div>
+      </aside>
 
-      <div id="settings-panel" class="settings-panel" hidden>
-        <div class="settings-panel-arrow"></div>
-        <button id="theme-toggle" class="settings-item" type="button">
-          <span>테마</span>
-          <span id="theme-toggle-label" class="settings-value">다크 &#9789;</span>
-        </button>
-        <button id="usage-link-btn" class="settings-item" type="button">
-          <span>Claude 사용량</span>
-          <span class="settings-value">열기 &#8599;</span>
-        </button>
-        <button id="export-btn" class="settings-item" type="button">
-          <span>대화 내보내기</span>
-          <span class="settings-value">&#8595;</span>
-        </button>
-        <button id="check-update-btn" class="settings-item" type="button">
-          <span>업데이트 확인</span>
-          <span id="update-status" class="settings-value"></span>
-        </button>
-        <div class="settings-divider"></div>
-        <button id="clear-history-btn" class="settings-item danger" type="button">
-          <span>작업 기록 전체 삭제</span>
-          <span class="settings-value">&#128465;</span>
-        </button>
-      </div>
-    </aside>
+      <main class="main">
+        <div class="stage">
+          <div class="hud-corner tl"></div>
+          <div class="hud-corner tr"></div>
+          <div class="hud-corner bl"></div>
+          <div class="hud-corner br"></div>
+          <div class="stage-label">AI CORE</div>
+          <div id="ring" class="jarvis-ring idle">
+            <div class="ring-orbit"></div>
+            <div class="ring-inner"></div>
+            <div class="ring-core"></div>
+            <div class="ring-bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div id="status-text" class="status-text">AWAITING INSTRUCTION</div>
+        </div>
 
-    <main class="main">
-      <div class="stage">
-        <div class="hud-corner tl"></div>
-        <div class="hud-corner tr"></div>
-        <div class="hud-corner bl"></div>
-        <div class="hud-corner br"></div>
-        <div id="ring" class="jarvis-ring idle">
-          <div class="ring-orbit"></div>
-          <div class="ring-inner"></div>
-          <div class="ring-core"></div>
-          <div class="ring-bars">
-            <span></span><span></span><span></span><span></span><span></span>
+        <div id="thread-status" class="thread-status">
+          <span id="thread-status-label" class="thread-status-label">&#128193; general</span>
+          <button id="new-thread-btn" class="text-btn" type="button">새 대화 시작</button>
+        </div>
+        <div id="thread-warning" class="thread-warning" hidden>
+          이 대화가 길어졌어요 — 새로 시작하면 더 빠르고 정확할 수 있어요
+        </div>
+        <div id="resume-banner" class="resume-banner" hidden>
+          <span>과거 대화를 보고 있습니다.</span>
+          <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화하기</button>
+        </div>
+
+        <div id="conversation" class="conversation">
+          <div id="conversation-empty" class="conversation-empty">
+            <div class="conversation-empty-mark">&#9678;</div>
+            <div class="conversation-empty-title">무엇을 도와드릴까요?</div>
+            <div class="conversation-empty-hint">아래 입력창에 명령을 입력하거나, 자주 쓰는 명령 버튼을 눌러보세요.</div>
           </div>
         </div>
-        <div id="status-text" class="status-text">대기 중</div>
-      </div>
 
-      <div id="thread-status" class="thread-status">
-        <span id="thread-status-label" class="thread-status-label">&#128193; general</span>
-        <button id="new-thread-btn" class="text-btn" type="button">새 대화 시작</button>
-      </div>
-      <div id="thread-warning" class="thread-warning" hidden>
-        이 대화가 길어졌어요 — 새로 시작하면 더 빠르고 정확할 수 있어요
-      </div>
-      <div id="resume-banner" class="resume-banner" hidden>
-        <span>과거 대화를 보고 있습니다.</span>
-        <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화하기</button>
-      </div>
-
-      <div id="conversation" class="conversation">
-        <div id="conversation-empty" class="conversation-empty">
-          <div class="conversation-empty-mark">&#9678;</div>
-          <div class="conversation-empty-title">무엇을 도와드릴까요?</div>
-          <div class="conversation-empty-hint">아래 입력창에 명령을 입력하거나, 자주 쓰는 명령 버튼을 눌러보세요.</div>
+        <div id="preset-row" class="preset-row">
+          <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 요약</button>
+          <button type="button" class="preset-btn" data-text="지금까지 변경된 파일이 있는지 git 상태를 확인해줘">git 상태 확인</button>
+          <button type="button" class="preset-btn" data-text="이 프로젝트의 테스트를 실행해줘">테스트 실행</button>
         </div>
-      </div>
 
-      <div id="preset-row" class="preset-row">
-        <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 요약</button>
-        <button type="button" class="preset-btn" data-text="지금까지 변경된 파일이 있는지 git 상태를 확인해줘">git 상태 확인</button>
-        <button type="button" class="preset-btn" data-text="이 프로젝트의 테스트를 실행해줘">테스트 실행</button>
-      </div>
+        <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
+          <button type="button" class="mode-btn active" data-mode="chat">
+            CHAT MODE <span class="mode-hint">일반 채팅처럼 답함</span>
+          </button>
+          <button type="button" class="mode-btn" data-mode="code">
+            CODE MODE <span class="mode-hint">파일 작업 시 신중하게 확인</span>
+          </button>
+        </div>
 
-      <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
-        <button type="button" class="mode-btn active" data-mode="chat">
-          대화 <span class="mode-hint">일반 채팅처럼 답함</span>
-        </button>
-        <button type="button" class="mode-btn" data-mode="code">
-          코딩 <span class="mode-hint">파일 작업 시 신중하게 확인</span>
-        </button>
-      </div>
+        <form id="command-form" class="command-bar">
+          <span class="command-prompt">&#10095;</span>
+          <input id="command-input" class="command-input" type="text"
+                 placeholder="명령을 입력하세요... (Enter 전송, Esc 취소)" autocomplete="off" />
+          <button type="button" id="cancel-btn" class="cancel-btn" hidden>ABORT</button>
+          <button type="submit" class="command-submit">SEND</button>
+        </form>
+      </main>
 
-      <form id="command-form" class="command-bar">
-        <input id="command-input" class="command-input" type="text"
-               placeholder="명령을 입력하세요... (Enter 전송, Esc 취소)" autocomplete="off" />
-        <button type="button" id="cancel-btn" class="cancel-btn" hidden>취소</button>
-        <button type="submit" class="command-submit">전송</button>
-      </form>
-    </main>
+      <aside class="inspector">
+        <div class="inspector-section">
+          <div class="inspector-title">SYSTEM ACTIVITY</div>
+          <div class="inspector-row">
+            <span class="inspector-key">CORE STATE</span>
+            <span class="inspector-value" id="inspector-state">READY</span>
+          </div>
+          <div class="inspector-row">
+            <span class="inspector-key">ACTIVE PROJECT</span>
+            <span class="inspector-value" id="inspector-project">GENERAL</span>
+          </div>
+          <div class="inspector-row">
+            <span class="inspector-key">RESPONSE MODE</span>
+            <span class="inspector-value" id="inspector-mode">CHAT</span>
+          </div>
+          <div class="inspector-row">
+            <span class="inspector-key">THREAD STATUS</span>
+            <span class="inspector-value" id="inspector-thread">NEW</span>
+          </div>
+          <div class="inspector-row">
+            <span class="inspector-key">STREAM STATUS</span>
+            <span class="inspector-value" id="inspector-stream">IDLE</span>
+          </div>
+        </div>
+
+        <div class="inspector-section">
+          <div class="inspector-title">PROJECT SURFACE</div>
+          <div class="inspector-note">
+            Active surface: <strong id="inspector-surface-project">general</strong><br />
+            Files are read and written directly by the Claude Code CLI bridge — CAELUS itself holds no file tree.
+          </div>
+        </div>
+
+        <div class="inspector-section inspector-section-grow">
+          <div class="inspector-title">RECENT EVENTS</div>
+          <div id="activity-feed" class="activity-feed"></div>
+        </div>
+
+        <div class="inspector-section">
+          <div class="inspector-title">SESSION</div>
+          <div class="inspector-note">LOCAL SESSION &middot; CLI BRIDGE</div>
+        </div>
+      </aside>
+    </div>
   </div>
 
   <script src="renderer.js"></script>

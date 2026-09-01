@@ -1,66 +1,71 @@
+/* =====================================================================
+   CAELUS — AI Command Center HUD
+   Design system: deep space panels, thin cyan structural lines, glow
+   reserved for the AI core / active state / focused input only. Not a
+   literal JARVIS clone — a restrained, premium command-center reading.
+   ===================================================================== */
 :root {
-  --bg: #0b1220;
-  --bg-deep: #060a13;
-  --card-bg: #111c2e;
-  --card-bg-soft: #0e1826;
-  --card-border: #223247;
-  --idle: #4fd1e0;
-  --idle-soft: #5ec8d8;
-  --listening: #f2c34d;
-  --success: #6fd68a;
-  --error: #e05c5c;
-  /* 사진 레퍼런스(HUD 위젯)에서 가져온 보조 포인트 컬러 — 시안 하나뿐이던
-     팔레트에 딱 한 곳(사용량/강조 배지 등 정말 눈에 띄어야 할 곳)에만 쓴다.
-     장식으로 남발하지 않는다. */
-  --accent-gold: #e0b054;
-  --text: #eaf6f8;
-  --text-muted: #5c6c80;
-  --text-faint: #3d4c5e;
-  /* V1에서 0.05로 뒀더니 실기기에서 사실상 안 보인다는 피드백을 받고
-     V2에서 큰 폭으로 올렸다 — "은은한 정도"가 아니라 실제로 눈에 띄는
-     수준이어야 한다. */
-  --dot-color: rgba(255, 255, 255, 0.14);
-  --ring-inner-color: rgba(234, 246, 248, 0.75);
+  --bg: #050812;
+  --bg-deep: #07111f;
+  /* "glass" panels: translucent + backdrop-blur, so the background dot
+     grid still reads faintly through every panel. */
+  --panel: rgba(10, 22, 38, 0.72);
+  --panel-strong: rgba(13, 29, 49, 0.92);
+  --card-bg: var(--panel-strong);
+  --card-bg-soft: var(--panel);
+  --line: rgba(102, 224, 255, 0.2);
+  --line-strong: rgba(102, 224, 255, 0.42);
+  --card-border: var(--line);
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --cyan: #66e0ff;
+  --cyan-soft: #39b8d4;
+  --idle: var(--cyan);
+  --idle-soft: var(--cyan-soft);
+  --listening: #f2c34d;
+  --success: #70e39a;
+  --error: #ff6473;
+  --accent-gold: #d7aa52;
+
+  --text: #eaf7ff;
+  --text-muted: #7f96aa;
+  --text-faint: #405266;
+  --dot-color: rgba(102, 224, 255, 0.09);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
   --sp-5: 24px;
-  --font-mono: 'Cascadia Code', 'SF Mono', Consolas, 'Courier New', monospace;
   --font-ui: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Cascadia Code', Consolas, 'SF Mono', monospace;
 
-  /* 그림자는 "떠 있는 레이어" 하나에만 쓴다는 원칙으로 여기 한 곳에서만
-     정의한다 — 버튼/카드 하나하나에 각자 그림자를 만들지 않는다. */
-  --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(79, 209, 224, 0.05);
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.16);
+  --shadow-float: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(102, 224, 255, 0.06);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.22);
 }
 
 /* --- 라이트 테마 (JS가 <html data-theme="light">를 토글) --- */
 html[data-theme='light'] {
-  --bg: #f4f7fa;
-  --bg-deep: #e9eef3;
-  --card-bg: #ffffff;
-  --card-bg-soft: #f7fafc;
-  --card-border: #d8e1e8;
-  --idle: #1798a8;
-  --idle-soft: #2ab0c2;
-  --listening: #c98a12;
-  --success: #2f9e5b;
-  --error: #c53d3d;
-  --accent-gold: #b8862f;
-  --text: #16232e;
-  --text-muted: #6b7c8c;
-  --text-faint: #a3b2bf;
-  --dot-color: rgba(20, 40, 60, 0.1);
-  /* 라이트 테마는 배경이 밝아서 링 안쪽 링을 밝은 고정색으로 두면(V1의
-     버그) 거의 안 보인다 — 테마별로 어두운 색을 따로 준다. */
-  --ring-inner-color: rgba(23, 60, 75, 0.55);
-  --shadow-float: 0 16px 40px rgba(20, 40, 60, 0.14), 0 0 0 1px rgba(23, 152, 168, 0.06);
-  --shadow-card: 0 2px 10px rgba(20, 40, 60, 0.06);
+  --bg: #eef2f7;
+  --bg-deep: #e1e8f0;
+  --panel: rgba(255, 255, 255, 0.78);
+  --panel-strong: rgba(255, 255, 255, 0.96);
+  --line: rgba(23, 130, 160, 0.22);
+  --line-strong: rgba(23, 130, 160, 0.45);
+  --cyan: #0f7f96;
+  --cyan-soft: #2497ac;
+  --listening: #b3821a;
+  --success: #1f8e56;
+  --error: #c23b46;
+  --accent-gold: #a5731f;
+  --text: #10202c;
+  --text-muted: #5c7284;
+  --text-faint: #9aacb8;
+  --dot-color: rgba(15, 60, 75, 0.08);
+  --shadow-float: 0 20px 48px rgba(15, 40, 55, 0.16), 0 0 0 1px rgba(15, 130, 160, 0.08);
+  --shadow-card: 0 2px 12px rgba(15, 40, 55, 0.08);
 }
 
 * {
@@ -76,15 +81,21 @@ body {
   font-family: var(--font-ui);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* 얇고 은은한 스크롤바 — 평소엔 거의 안 보이다가 그 영역에 마우스가 있을
-   때만 살짝 진해진다(항상 보이는 두꺼운 기본 스크롤바가 프로토타입 인상을
-   가장 많이 주는 요소 중 하나라 다시 그린다). */
+   때만 살짝 진해진다. */
 * {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 *:hover {
-  scrollbar-color: var(--card-border) transparent;
+  scrollbar-color: var(--line-strong) transparent;
 }
 *::-webkit-scrollbar {
   width: 7px;
@@ -98,67 +109,169 @@ body {
   border-radius: 8px;
 }
 *:hover::-webkit-scrollbar-thumb {
-  background: var(--card-border);
+  background: var(--line-strong);
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--idle-soft);
+  background: var(--cyan-soft);
 }
 
-/* 배경: 단색 한 장이 아니라 옅은 점(별자리) 패턴 + 깊은 그라디언트를
-   겹쳐서 깊이감을 준다 — JARVIS UI 레퍼런스 사진의 핵심 요소. */
+/* 배경: 옅은 점(별자리) 패턴 + 깊은 그라디언트. 모든 패널이 반투명(glass)
+   이라 이 배경이 패널 너머로도 은은하게 비친다. */
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   background:
-    radial-gradient(ellipse at 20% -10%, rgba(79, 209, 224, 0.05), transparent 55%),
+    radial-gradient(ellipse at 20% -10%, rgba(102, 224, 255, 0.07), transparent 55%),
     radial-gradient(var(--dot-color) 1px, transparent 1px) 0 0 / 26px 26px,
     linear-gradient(165deg, var(--bg) 0%, var(--bg-deep) 100%);
 }
 
-/* --- 좌측 사이드바 --- */
+/* --- 상단 바: 브랜드 / 코어 상태 / 활성 프로젝트 / 전체화면 --- */
+.topbar {
+  flex-shrink: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: 0 var(--sp-4);
+  background: var(--panel-strong);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  -webkit-app-region: drag;
+}
+.topbar button {
+  -webkit-app-region: no-drag;
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.topbar-brand .brand-mark {
+  color: var(--cyan);
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(102, 224, 255, 0.7);
+}
+.topbar-brand .brand-name {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+.topbar-core {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.topbar-core-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: core-pulse 2.4s ease-in-out infinite;
+}
+@keyframes core-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.topbar-project {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.topbar-project-key {
+  color: var(--text-faint);
+}
+.topbar-project-value {
+  color: var(--cyan);
+  font-weight: 600;
+}
+.topbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.topbar-btn:hover {
+  border-color: var(--cyan-soft);
+  color: var(--text);
+  background: var(--panel);
+}
+.topbar-btn-icon {
+  font-size: 12px;
+}
+
+/* --- 3분할 워크스페이스: 사이드바 / 메인 / 인스펙터 --- */
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* --- 좌측: MISSION CONTROL 사이드바 --- */
 .sidebar {
   width: 280px;
   flex-shrink: 0;
-  /* V1은 배경이 --card-bg 단색이라 .app 배경과 톤 차이가 크게 안 느껴졌다
-     — 패널이라는 느낌이 들도록 그라디언트로 바꾸고, 시안 언더라인을 하나
-     그어 "제어 패널" 같은 인상을 준다. */
-  background: linear-gradient(180deg, var(--card-bg) 0%, var(--card-bg-soft) 100%);
-  border-right: 1px solid var(--card-border);
-  box-shadow: inset -1px 0 0 rgba(79, 209, 224, 0.08);
-  padding: var(--sp-5) var(--sp-4);
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  border-right: 1px solid var(--line);
+  padding: var(--sp-4);
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: width 0.2s ease;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
 .brand-mark {
-  color: var(--idle);
-  font-size: 22px;
-  /* 브랜드 마크 하나만 남기는 글로우 포인트 */
-  text-shadow: 0 0 10px rgba(79, 209, 224, 0.7);
+  color: var(--cyan);
+  font-size: 20px;
+  text-shadow: 0 0 10px rgba(102, 224, 255, 0.7);
 }
-.brand-name {
+.brand-mark.small {
+  font-size: 15px;
+}
+.sidebar-brand-name {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
+  color: var(--text-muted);
   flex: 1;
 }
 
 .icon-btn {
   background: transparent;
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--line);
   color: var(--text-muted);
   border-radius: var(--radius-sm);
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -166,26 +279,28 @@ body {
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .icon-btn:hover {
-  border-color: var(--idle-soft);
+  border-color: var(--cyan-soft);
   color: var(--text);
-  background: var(--card-bg-soft);
+  background: var(--panel-strong);
 }
 .icon-btn.small {
-  width: 24px;
-  height: 24px;
-  font-size: 12px;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
 }
 
 .sidebar-label {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.16em;
   margin-bottom: var(--sp-2);
 }
 
 .history-search {
   background: var(--bg-deep);
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 7px 10px;
   color: var(--text);
@@ -198,7 +313,7 @@ body {
   color: var(--text-faint);
 }
 .history-search:focus {
-  border-color: var(--idle);
+  border-color: var(--cyan);
 }
 
 .history-scroll {
@@ -220,12 +335,14 @@ body {
 
 .history-empty {
   color: var(--text-faint);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-align: center;
   padding: var(--sp-5) var(--sp-2);
 }
 
-/* --- 사이드바 트리: 프로젝트 / 기타 대화 섹션 --- */
+/* --- 사이드바 트리: PROJECTS / GENERAL THREADS --- */
 .tree-section-header {
   display: flex;
   align-items: center;
@@ -236,9 +353,11 @@ body {
   margin-top: 0;
 }
 .tree-section-title {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.16em;
 }
 
 .tree-groups {
@@ -252,17 +371,17 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--card-bg-soft);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   padding: 7px var(--sp-2);
   font-size: 12px;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .tree-group-header:hover {
-  border-color: var(--idle-soft);
-  background: var(--card-bg);
+  border-color: var(--cyan-soft);
+  background: var(--panel-strong);
 }
 .tree-caret {
   color: var(--text-muted);
@@ -282,7 +401,7 @@ body {
   flex: 1;
 }
 .tree-group-badge {
-  background: var(--bg-deep);
+  background: transparent;
   border: 1px solid var(--accent-gold);
   color: var(--accent-gold);
   border-radius: 9px;
@@ -312,21 +431,23 @@ body {
   transition: color 0.15s ease, background 0.15s ease;
 }
 .tg-action:hover {
-  color: var(--idle);
-  background: var(--card-bg);
+  color: var(--cyan);
+  background: var(--panel-strong);
 }
 .tg-action.tg-delete:hover {
   color: var(--error);
 }
 
+/* 접혀 있는(펼쳐지지 않은) 그룹 안 항목 — .tree-group-children의 hidden 은
+   renderer.js가 직접 토글한다. */
 .tree-group-children {
   list-style: none;
   margin: var(--sp-2) 0 0;
-  padding: 0 0 0 14px;
+  padding: 0 0 0 13px;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  border-left: 1px solid var(--card-border);
+  border-left: 1px solid var(--line);
 }
 
 .tree-inline-input {
@@ -336,14 +457,17 @@ body {
 
 .h-project-tag {
   display: inline-block;
-  color: var(--idle-soft);
+  color: var(--cyan-soft);
   margin-right: 6px;
 }
 
+/* 활성 항목은 큰 채움색 대신 왼쪽 얇은 시안 레일로만 표시 — "기록 카드"가
+   아니라 "임무 항목(mission entry)"처럼 보이도록. */
 .history-item {
-  background: var(--card-bg-soft);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
   padding: var(--sp-2) var(--sp-3);
   font-size: 13px;
   cursor: pointer;
@@ -351,12 +475,12 @@ body {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .history-item:hover {
-  border-color: var(--idle-soft);
-  background: var(--card-bg);
+  border-color: var(--cyan-soft);
+  background: var(--panel-strong);
 }
 .history-item.active {
-  border-color: var(--idle);
-  background: var(--card-bg);
+  border-left-color: var(--cyan);
+  background: var(--panel-strong);
 }
 .history-item .h-title {
   color: var(--text);
@@ -395,22 +519,21 @@ body {
   opacity: 1;
 }
 .history-item .h-rename:hover {
-  color: var(--idle);
+  color: var(--cyan);
 }
 .history-item .h-delete:hover {
   color: var(--error);
 }
 
-/* --- 설정 패널 (톱니바퀴로 여닫는 드롭다운) --- */
-/* 이 앱에서 그림자가 허용되는 몇 안 되는 자리 중 하나 — 실제로 화면 위에
-   "떠 있는" 레이어이기 때문(원칙: 버튼 하나하나가 아니라 이런 레이어에만). */
+/* --- 설정 패널 --- */
 .settings-panel {
   position: absolute;
-  top: 58px;
+  top: 52px;
   right: var(--sp-4);
-  width: 240px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  width: 220px;
+  background: var(--panel-strong);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-float);
   padding: var(--sp-2);
@@ -422,9 +545,9 @@ body {
   right: 14px;
   width: 11px;
   height: 11px;
-  background: var(--card-bg);
-  border-left: 1px solid var(--card-border);
-  border-top: 1px solid var(--card-border);
+  background: var(--panel-strong);
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
   transform: rotate(45deg);
 }
 
@@ -438,116 +561,130 @@ body {
   border-radius: var(--radius-sm);
   padding: var(--sp-2) var(--sp-2);
   color: var(--text);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
   cursor: pointer;
   text-align: left;
   transition: background 0.12s ease, color 0.12s ease;
 }
 .settings-item:hover {
-  background: var(--card-bg-soft);
+  background: var(--panel);
 }
 .settings-item.danger:hover {
-  background: rgba(224, 92, 92, 0.1);
+  background: rgba(255, 100, 115, 0.12);
   color: var(--error);
 }
 .settings-value {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 .settings-divider {
   height: 1px;
-  background: var(--card-border);
+  background: var(--line);
   margin: var(--sp-2) 4px;
 }
 
-/* --- 중앙: 상태 인디케이터 + 대화 영역 --- */
+/* --- 중앙: AI CORE + 대화 영역 --- */
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--sp-5) 32px;
+  padding: var(--sp-4) 28px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .stage {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-4);
-  padding: 14px 0 4px;
+  gap: var(--sp-2);
+  padding: 10px 0 4px;
   position: relative;
 }
 
-/* 화면 상단 HUD 프레임 느낌을 주는 모서리 브래킷 (JARVIS 스타일) */
+.stage-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-1);
+}
+
+/* 화면 상단 HUD 프레임 느낌을 주는 모서리 브래킷 */
 .hud-corner {
   position: absolute;
-  width: 22px;
-  height: 22px;
-  border: 1.5px solid var(--idle);
-  opacity: 0.3;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--cyan);
+  opacity: 0.28;
 }
-.hud-corner.tl { top: -6px; left: -40px; border-right: none; border-bottom: none; }
-.hud-corner.tr { top: -6px; right: -40px; border-left: none; border-bottom: none; }
-.hud-corner.bl { bottom: -6px; left: -40px; border-right: none; border-top: none; }
-.hud-corner.br { bottom: -6px; right: -40px; border-left: none; border-top: none; }
+.hud-corner.tl { top: 14px; left: -36px; border-right: none; border-bottom: none; }
+.hud-corner.tr { top: 14px; right: -36px; border-left: none; border-bottom: none; }
+.hud-corner.bl { bottom: 4px; left: -36px; border-right: none; border-top: none; }
+.hud-corner.br { bottom: 4px; right: -36px; border-left: none; border-top: none; }
 
-/* JARVIS 링 — 사진 레퍼런스처럼 동심원 2겹(바깥 시안 글로우 링 + 안쪽
-   또렷한 링)으로 레이어감을 준다. V1에서 크기/두께/불투명도를 너무 낮게
-   잡아서 실기기에서 거의 안 보인다는 피드백을 받고 전체적으로 키웠다. */
+/* AI CORE — 동심원 2겹(바깥 시안 글로우 링 + 안쪽 또렷한 링) + 중심 글로우.
+   글로우는 이 코어와 상태 표시줄, 포커스된 입력창 정도에만 남긴다. */
 .jarvis-ring {
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  border: 2px solid var(--idle);
+  border: 2px solid var(--cyan);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   box-shadow:
-    0 0 16px rgba(79, 209, 224, 0.6),
-    0 0 46px rgba(79, 209, 224, 0.25),
-    inset 0 0 20px rgba(79, 209, 224, 0.12);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    0 0 16px rgba(102, 224, 255, 0.55),
+    0 0 46px rgba(102, 224, 255, 0.22),
+    inset 0 0 20px rgba(102, 224, 255, 0.1);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, width 0.2s ease, height 0.2s ease;
+  animation: core-breathe 4.5s ease-in-out infinite;
+}
+@keyframes core-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
 }
 
-/* 안쪽 동심원 — V1은 1px/투명도 0.35라 사실상 안 보였다. 두께/불투명도를
-   크게 올리고, 테마별로 색이 갈리는 --ring-inner-color를 쓴다(V1은 밝은
-   고정색이라 라이트 테마에서 흰 배경 위 흰 선이 되는 버그가 있었다). */
 .ring-inner {
   position: absolute;
   inset: 12px;
   border-radius: 50%;
-  border: 2px solid var(--ring-inner-color);
+  border: 2px solid rgba(234, 247, 255, 0.55);
   transition: border-color 0.25s ease;
 }
+html[data-theme='light'] .ring-inner {
+  border-color: rgba(16, 32, 44, 0.4);
+}
 
-/* 링 바깥을 도는 점선 궤도 — 항상 천천히 회전해 "대기 중에도 살아있는" 느낌 */
 .ring-orbit {
   position: absolute;
-  inset: -12px;
+  inset: -13px;
   border-radius: 50%;
-  border: 1px dashed rgba(79, 209, 224, 0.3);
-  animation: orbit-spin 12s linear infinite;
+  border: 1px dashed rgba(102, 224, 255, 0.32);
+  animation: orbit-spin 14s linear infinite;
 }
 .jarvis-ring.listening .ring-orbit {
   border-color: rgba(242, 195, 77, 0.5);
-  animation-duration: 4s;
+  animation-duration: 3.5s;
 }
 .jarvis-ring.listening .ring-inner {
   border-color: rgba(242, 195, 77, 0.75);
 }
 .jarvis-ring.response .ring-orbit {
-  border-color: rgba(111, 214, 138, 0.5);
+  border-color: rgba(112, 227, 154, 0.5);
 }
 .jarvis-ring.response .ring-inner {
-  border-color: rgba(111, 214, 138, 0.75);
+  border-color: rgba(112, 227, 154, 0.75);
 }
 .jarvis-ring.error .ring-orbit {
-  border-color: rgba(224, 92, 92, 0.5);
+  border-color: rgba(255, 100, 115, 0.5);
 }
 .jarvis-ring.error .ring-inner {
-  border-color: rgba(224, 92, 92, 0.75);
+  border-color: rgba(255, 100, 115, 0.75);
 }
 
 @keyframes orbit-spin {
@@ -559,11 +696,10 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(79, 209, 224, 0.4), transparent 70%);
+  background: radial-gradient(circle, rgba(102, 224, 255, 0.42), transparent 70%);
   transition: background 0.25s ease;
 }
 
-/* 입력 처리 중일 때만 보이는 작은 파형 바 */
 .ring-bars {
   position: absolute;
   bottom: -20px;
@@ -578,7 +714,7 @@ body {
   width: 3px;
   background: var(--listening);
   border-radius: 2px;
-  animation: bar-bounce 0.9s ease-in-out infinite;
+  animation: bar-bounce 0.75s ease-in-out infinite;
 }
 .ring-bars span:nth-child(1) { height: 40%; animation-delay: 0s; }
 .ring-bars span:nth-child(2) { height: 70%; animation-delay: 0.1s; }
@@ -594,9 +730,9 @@ body {
 .jarvis-ring.listening {
   border-color: var(--listening);
   box-shadow:
-    0 0 16px rgba(242, 195, 77, 0.6),
-    0 0 46px rgba(242, 195, 77, 0.25);
-  animation: pulse 1.6s ease-in-out infinite;
+    0 0 16px rgba(242, 195, 77, 0.55),
+    0 0 46px rgba(242, 195, 77, 0.22);
+  animation: pulse 1.3s ease-in-out infinite;
 }
 .jarvis-ring.listening .ring-core {
   background: radial-gradient(circle, rgba(242, 195, 77, 0.4), transparent 70%);
@@ -608,40 +744,47 @@ body {
 .jarvis-ring.response {
   border-color: var(--success);
   box-shadow:
-    0 0 16px rgba(111, 214, 138, 0.6),
-    0 0 46px rgba(111, 214, 138, 0.25);
+    0 0 20px rgba(112, 227, 154, 0.65),
+    0 0 50px rgba(112, 227, 154, 0.28);
+  animation: pulse-once 0.6s ease-out 1;
 }
 .jarvis-ring.response .ring-core {
-  background: radial-gradient(circle, rgba(111, 214, 138, 0.4), transparent 70%);
+  background: radial-gradient(circle, rgba(112, 227, 154, 0.4), transparent 70%);
 }
 
 .jarvis-ring.error {
   border-color: var(--error);
   box-shadow:
-    0 0 16px rgba(224, 92, 92, 0.6),
-    0 0 46px rgba(224, 92, 92, 0.25);
+    0 0 16px rgba(255, 100, 115, 0.55),
+    0 0 46px rgba(255, 100, 115, 0.22);
+  animation: pulse 0.5s ease-in-out 2;
 }
 .jarvis-ring.error .ring-core {
-  background: radial-gradient(circle, rgba(224, 92, 92, 0.4), transparent 70%);
+  background: radial-gradient(circle, rgba(255, 100, 115, 0.4), transparent 70%);
 }
 
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.03); opacity: 0.85; }
+  50% { transform: scale(1.04); opacity: 0.85; }
+}
+@keyframes pulse-once {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 .status-text {
   font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   color: var(--text-muted);
   text-transform: uppercase;
 }
 
-/* --- 상태 표시줄: 지금 작업 중인 프로젝트/스레드 --- */
+/* --- 상태 표시줄 --- */
 .thread-status {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -659,7 +802,7 @@ body {
 
 .thread-warning {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   color: var(--listening);
   font-size: 11px;
   margin-bottom: var(--sp-2);
@@ -667,12 +810,12 @@ body {
 
 .resume-banner {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  background: var(--card-bg-soft);
-  border: 1px solid var(--idle);
+  background: var(--panel);
+  border: 1px solid var(--cyan);
   border-radius: var(--radius-sm);
   padding: 7px var(--sp-3);
   font-size: 12px;
@@ -686,7 +829,7 @@ body {
 
 .new-project-input {
   background: var(--bg-deep);
-  border: 1px solid var(--idle);
+  border: 1px solid var(--cyan);
   color: var(--text);
   border-radius: var(--radius-sm);
   padding: 4px 8px;
@@ -700,13 +843,13 @@ body {
 
 .conversation {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  padding: var(--sp-2) 0 var(--sp-5);
+  padding: var(--sp-2) 0 var(--sp-4);
   position: relative;
 }
 
@@ -724,7 +867,7 @@ body {
 }
 .conversation-empty-mark {
   font-size: 32px;
-  color: var(--card-border);
+  color: var(--line-strong);
 }
 .conversation-empty-title {
   font-size: 15px;
@@ -738,11 +881,9 @@ body {
   display: none;
 }
 
-/* 말풍선: 비대칭 처리 — 사용자 메시지만 카드(테두리+배경)로 감싸고, AI
-   응답은 배경/테두리 없는 순수 텍스트 블록으로 둔다(Claude.ai/ChatGPT
-   공통 패턴). 컨테이너 유무 자체가 "누가 말했는지"의 신호가 되므로 별도
-   장식(아바타 점 등)이 필요 없어진다. 오류만은 눈에 띄어야 하는 신호라
-   카드 형태를 그대로 유지한다. */
+/* 말풍선: 비대칭 처리 — 사용자 메시지는 유리 카드로 오른쪽 정렬, AI 응답은
+   왼쪽에 얇은 포인트 컬러 바를 두른 텍스트 블록. 오류는 눈에 띄어야 하는
+   신호라 카드 형태를 유지한다. */
 .bubble {
   max-width: 85%;
   padding: 11px 15px;
@@ -753,51 +894,49 @@ body {
 }
 .bubble.user,
 .bubble.error {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  background: var(--panel-strong);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
 }
 .bubble.user {
   align-self: flex-end;
-  border-color: var(--idle);
+  border-color: var(--cyan);
 }
 .bubble.assistant {
   align-self: flex-start;
   max-width: 100%;
-  /* V1은 테두리/배경을 완전히 없애서 "스타일이 아예 안 먹은 것"처럼 보일
-     위험이 있었다 — 왼쪽에 얇은 포인트 컬러 바 하나는 남겨서, 배경 없는
-     것도 의도된 디자인이라는 걸 분명히 한다. */
   padding: 2px 2px 2px 14px;
   border-left: 2px solid var(--success);
 }
 .bubble.error {
   align-self: flex-start;
   border-color: var(--error);
-  color: #ffb3b3;
+  color: #ffb3ba;
 }
 
 .bubble code {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(102, 224, 255, 0.1);
   border-radius: 4px;
   padding: 1px 5px;
   font-family: var(--font-mono);
   font-size: 0.92em;
 }
 .bubble pre {
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid var(--card-border);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: var(--sp-3);
   overflow-x: auto;
   margin: var(--sp-2) 0;
 }
 html[data-theme='light'] .bubble pre {
-  background: #171717;
-  border-color: #171717;
+  background: #14202c;
+  border-color: #14202c;
 }
 html[data-theme='light'] .bubble pre code {
-  color: #eaeaea;
+  color: #eaf7ff;
 }
 .bubble pre code {
   background: none;
@@ -820,37 +959,39 @@ html[data-theme='light'] .bubble pre code {
   opacity: 1;
 }
 .bubble-copy:hover {
-  color: var(--idle);
+  color: var(--cyan);
 }
 
-/* --- 자주 쓰는 명령 (프리셋) --- */
+/* --- 자주 쓰는 명령 (커맨드 칩) --- */
 .preset-row {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
   margin-bottom: var(--sp-2);
 }
 .preset-btn {
-  background: var(--card-bg-soft);
-  border: 1px solid var(--card-border);
+  background: var(--panel);
+  border: 1px solid var(--line);
   color: var(--text-muted);
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   padding: 5px 13px;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .preset-btn:hover {
-  border-color: var(--idle-soft);
+  border-color: var(--cyan-soft);
   color: var(--text);
 }
 
-/* --- 응답 모드 전환 (대화 / 코딩) --- */
+/* --- 응답 모드 전환 --- */
 .mode-toggle {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   display: flex;
   gap: var(--sp-2);
   margin-bottom: var(--sp-3);
@@ -858,12 +999,14 @@ html[data-theme='light'] .bubble pre code {
 
 .mode-btn {
   flex: 1;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
   cursor: pointer;
   display: flex;
   align-items: baseline;
@@ -871,53 +1014,62 @@ html[data-theme='light'] .bubble pre code {
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .mode-btn:hover {
-  border-color: var(--idle-soft);
+  border-color: var(--cyan-soft);
 }
 .mode-btn.active {
-  border-color: var(--idle);
+  border-color: var(--cyan);
   color: var(--text);
-  background: var(--card-bg-soft);
+  background: var(--panel-strong);
 }
 .mode-hint {
+  font-family: var(--font-ui);
   font-size: 11px;
+  letter-spacing: normal;
   color: var(--text-muted);
 }
 
-/* --- 하단: 명령 입력 바 --- */
+/* --- 하단: 커맨드 콘솔 --- */
 .command-bar {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   display: flex;
+  align-items: center;
   gap: var(--sp-2);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+}
+
+.command-prompt {
+  color: var(--cyan-soft);
+  font-size: 13px;
+  flex-shrink: 0;
 }
 
 .command-input {
   flex: 1;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  padding: 12px 4px;
   color: var(--text);
+  font-family: var(--font-mono);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .command-input::placeholder {
   color: var(--text-faint);
+  font-family: var(--font-ui);
 }
-.command-input:focus {
-  border-color: var(--idle);
-  /* 은은한 글로우 대신, 흐림 없는 얇은 포커스 링(모던 웹 UI의 focus-ring
-     관례) — 접근성 신호는 유지하되 네온 느낌은 뺀다. */
-  box-shadow: 0 0 0 3px rgba(79, 209, 224, 0.15);
+.command-bar:has(.command-input:focus) {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(102, 224, 255, 0.15);
 }
-/* 뭔가 입력되어 "보낼 준비가 된" 상태만 골드 포인트 컬러로 — 사진
-   레퍼런스의 네온 입력창 느낌을 이 한 곳에만 절제해서 가져온다. */
-.command-input:not(:placeholder-shown) {
+.command-bar:has(.command-input:not(:placeholder-shown)) {
   border-color: var(--accent-gold);
 }
-.command-input:not(:placeholder-shown):focus {
-  box-shadow: 0 0 0 3px rgba(224, 176, 84, 0.18);
+.command-bar:has(.command-input:not(:placeholder-shown):focus) {
+  box-shadow: 0 0 0 3px rgba(215, 170, 82, 0.18);
 }
 .command-input:disabled {
   opacity: 0.6;
@@ -925,23 +1077,25 @@ html[data-theme='light'] .bubble pre code {
 
 .command-submit {
   background: transparent;
-  border: 1px solid var(--idle);
-  color: var(--idle);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
   border-radius: var(--radius-sm);
-  padding: 0 22px;
-  font-size: 14px;
+  padding: 8px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .command-submit:hover {
-  background: var(--idle);
+  background: var(--cyan);
   color: var(--bg-deep);
 }
 .command-submit:disabled {
   opacity: 0.4;
   cursor: default;
   background: none;
-  color: var(--idle);
+  color: var(--cyan);
 }
 
 .cancel-btn {
@@ -949,8 +1103,10 @@ html[data-theme='light'] .bubble pre code {
   border: 1px solid var(--error);
   color: var(--error);
   border-radius: var(--radius-sm);
-  padding: 0 16px;
-  font-size: 14px;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -962,11 +1118,147 @@ html[data-theme='light'] .bubble pre code {
 .text-btn {
   background: transparent;
   border: none;
-  color: var(--idle);
+  color: var(--cyan);
   font-size: 12px;
   cursor: pointer;
   padding: 0;
 }
 .text-btn:hover {
   text-decoration: underline;
+}
+
+/* --- 우측: 시스템 인스펙터 패널 --- */
+.inspector {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  border-left: 1px solid var(--line);
+  padding: var(--sp-4) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow-y: auto;
+  transition: width 0.2s ease;
+}
+
+.inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.inspector-section-grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.inspector-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.inspector-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: 11px;
+}
+.inspector-key {
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+.inspector-value {
+  font-family: var(--font-mono);
+  color: var(--cyan-soft);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+.inspector-value.is-busy {
+  color: var(--listening);
+}
+.inspector-value.is-error {
+  color: var(--error);
+}
+
+.inspector-note {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.inspector-note strong {
+  color: var(--text);
+}
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+.activity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--line-strong);
+  background: var(--panel-strong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  animation: activity-in 0.2s ease-out;
+}
+.activity-item small {
+  color: var(--text-muted);
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes activity-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* =====================================================================
+   전체화면 HUD 모드 — index.html의 fullscreen-toggle이 Fullscreen API로
+   진입할 때 body에 .is-fullscreen을 붙인다. 잡음(프리셋/힌트 텍스트)을
+   줄이고 코어/패널을 더 HUD답게 키운다.
+   ===================================================================== */
+body.is-fullscreen .sidebar {
+  width: 230px;
+}
+body.is-fullscreen .inspector {
+  width: 260px;
+  box-shadow: inset 1px 0 0 var(--line-strong);
+}
+body.is-fullscreen .jarvis-ring {
+  width: 190px;
+  height: 190px;
+}
+body.is-fullscreen .ring-core {
+  width: 56px;
+  height: 56px;
+}
+body.is-fullscreen .preset-row,
+body.is-fullscreen .mode-hint {
+  display: none;
+}
+body.is-fullscreen .topbar {
+  background: rgba(5, 8, 18, 0.4);
+}
+html[data-theme='light'] body.is-fullscreen .topbar {
+  background: rgba(238, 242, 247, 0.55);
 }
