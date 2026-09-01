@@ -17,6 +17,7 @@ const themeToggle = document.getElementById('theme-toggle');
 const themeToggleLabel = document.getElementById('theme-toggle-label');
 const projectSelect = document.getElementById('project-select');
 const newProjectBtn = document.getElementById('new-project-btn');
+const newProjectInput = document.getElementById('new-project-input');
 const exportBtn = document.getElementById('export-btn');
 const checkUpdateBtn = document.getElementById('check-update-btn');
 const updateStatus = document.getElementById('update-status');
@@ -299,31 +300,67 @@ usageLinkBtn.addEventListener('click', () => {
 
 // ===================================================================
 // 프로젝트(작업 폴더) 선택
+// projects\ 아래 첫 항목은 항상 "general"(일반) — 프로젝트를 안 고르고
+// 하는 일반 작업이 자동으로 모이는 폴더다. 나머지는 사용자가 만든 프로젝트.
 // ===================================================================
+function projectLabel(name) {
+  return name === 'general' ? '일반 (자동 정리함)' : name;
+}
+
 async function loadProjects() {
   const projects = await window.caelus.listProjects();
   const current = projectSelect.value;
-  projectSelect.innerHTML = '<option value="">(projects\\ 루트)</option>';
+  projectSelect.innerHTML = '';
   projects.forEach((name) => {
     const opt = document.createElement('option');
     opt.value = name;
-    opt.textContent = name;
+    opt.textContent = projectLabel(name);
     projectSelect.appendChild(opt);
   });
-  if (projects.includes(current)) projectSelect.value = current;
+  projectSelect.value = projects.includes(current) ? current : 'general';
 }
 
-newProjectBtn.addEventListener('click', async () => {
-  const name = prompt('새 프로젝트 폴더 이름을 입력하세요:');
-  if (!name || !name.trim()) return;
+// Electron은 window.prompt()를 지원하지 않는다(호출해도 다이얼로그가 안 뜨고
+// 조용히 무시된다) — 그래서 버튼을 눌러도 아무 반응이 없었다. 화면에 직접
+// 입력창을 보여주는 방식으로 바꿨다.
+function showNewProjectInput() {
+  newProjectBtn.hidden = true;
+  newProjectInput.hidden = false;
+  newProjectInput.value = '';
+  newProjectInput.focus();
+}
+
+function hideNewProjectInput() {
+  newProjectInput.hidden = true;
+  newProjectBtn.hidden = false;
+}
+
+newProjectBtn.addEventListener('click', showNewProjectInput);
+
+newProjectInput.addEventListener('keydown', async (event) => {
+  if (event.key === 'Escape') {
+    hideNewProjectInput();
+    return;
+  }
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+
+  const name = newProjectInput.value.trim();
+  if (!name) {
+    hideNewProjectInput();
+    return;
+  }
   const result = await window.caelus.createProject(name);
   if (!result.created) {
     alert(result.reason || '폴더를 만들지 못했습니다.');
     return;
   }
+  hideNewProjectInput();
   await loadProjects();
   projectSelect.value = result.name;
 });
+
+newProjectInput.addEventListener('blur', hideNewProjectInput);
 
 // ===================================================================
 // 자주 쓰는 명령(프리셋) — 입력창에 채워주기만 함(바로 전송하지 않음)

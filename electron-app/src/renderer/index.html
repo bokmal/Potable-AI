@@ -59,10 +59,10 @@
 
       <div class="project-row">
         <label for="project-select" class="project-label">작업 폴더</label>
-        <select id="project-select" class="project-select">
-          <option value="">(projects\ 루트)</option>
-        </select>
+        <select id="project-select" class="project-select"></select>
         <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 폴더 만들기">&#43;</button>
+        <input id="new-project-input" class="new-project-input" type="text"
+               placeholder="새 폴더 이름, Enter로 생성" autocomplete="off" hidden />
         <button id="export-btn" class="text-btn" type="button" style="margin-left: auto;">내보내기 &#8595;</button>
       </div>
 

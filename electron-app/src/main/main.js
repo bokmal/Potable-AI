@@ -24,6 +24,11 @@ const USB_ROOT = path.join(__dirname, '..', '..', '..');
 const PROJECTS_DIR = path.join(USB_ROOT, 'projects');
 const GIT_EXE = path.join(USB_ROOT, 'git', 'bin', 'git.exe');
 
+// 프로젝트를 따로 안 고르고 하는 일반 대화/작업은 projects\ 바로 아래가
+// 아니라 이 이름의 하위 폴더에 자동으로 모인다 — projects\ 루트 자체는
+// 항상 폴더들만 담는 컨테이너로 남는다.
+const DEFAULT_PROJECT_NAME = 'general';
+
 let mainWindow;
 const claude = new ClaudeBridge();
 const store = new Store();
@@ -109,17 +114,25 @@ ipcMain.handle('caelus:open-usage-page', () => {
 });
 
 // --- IPC: projects\ 하위 폴더 목록 (프로젝트 전환용) ---
+// DEFAULT_PROJECT_NAME("general")은 항상 존재를 보장하고 목록 맨 앞에 둔다 —
+// 프로젝트를 안 고른 일반 작업이 항상 그리로 모이기 때문에, 폴더 자체도
+// 항상 있어야 한다(처음엔 없을 수 있으므로 여기서 만들어둔다).
 ipcMain.handle('caelus:list-projects', () => {
   try {
-    if (!fs.existsSync(PROJECTS_DIR)) return [];
-    return fs
+    const generalDir = path.join(PROJECTS_DIR, DEFAULT_PROJECT_NAME);
+    if (!fs.existsSync(generalDir)) fs.mkdirSync(generalDir, { recursive: true });
+
+    const others = fs
       .readdirSync(PROJECTS_DIR, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
+      .filter((n) => n !== DEFAULT_PROJECT_NAME)
       .sort((a, b) => a.localeCompare(b, 'ko'));
+
+    return [DEFAULT_PROJECT_NAME, ...others];
   } catch (err) {
     console.error(`[CAELUS] projects 목록 조회 실패: ${err.message}`);
-    return [];
+    return [DEFAULT_PROJECT_NAME];
   }
 });
 
@@ -133,6 +146,9 @@ ipcMain.handle('caelus:create-project', (event, name) => {
   // 막는다. Windows에서 파일/폴더 이름에 못 쓰는 문자도 같이 걸러낸다.
   if (/[\\/:*?"<>|]/.test(trimmed) || trimmed === '.' || trimmed === '..') {
     return { created: false, reason: '폴더 이름에 \\ / : * ? " < > | 는 쓸 수 없습니다.' };
+  }
+  if (trimmed.toLowerCase() === DEFAULT_PROJECT_NAME) {
+    return { created: false, reason: `'${DEFAULT_PROJECT_NAME}'은(는) 일반 작업용으로 예약된 이름입니다.` };
   }
 
   const target = path.join(PROJECTS_DIR, trimmed);
@@ -219,18 +235,20 @@ ipcMain.handle('caelus:cancel-command', (event, taskId) => {
 // --- IPC: 명령 전송 → Claude Code CLI 호출 ---
 // UI 상태 전이: listening(입력 처리 중) → response(완료) / error(오류)
 // mode: 'chat'(기본, 대화체) | 'code'(CLI 기본 동작 — 신중한 코딩 에이전트)
-// projectName: projects\<projectName> 을 작업 디렉터리로 사용(선택, 안 고르면
-// projects\ 자체를 씀 — electron-app\ 폴더가 기본값이 되는 걸 방지)
+// projectName: projects\<projectName> 을 작업 디렉터리로 사용(선택). 안
+// 고르면 projects\general\ 로 자동으로 모인다 — projects\ 루트 자체를
+// cwd로 쓰지 않는다(예전엔 그렇게 했었는데, 그러면 프로젝트로 묶이지 않은
+// 파일들이 루트에 바로 쌓여서 지저분해진다는 문제가 있었다).
 ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => {
   const task = store.createTask(text, mode);
   activeTaskId = task.task_id;
   send(event, 'caelus:status', { state: 'listening', taskId: task.task_id });
 
-  // 프로젝트를 안 골라도 최소한 projects\ 폴더를 작업 디렉터리로 쓴다.
-  // (undefined로 두면 Electron 프로세스 자신의 cwd, 즉 electron-app\ 폴더가
-  // 기본값이 돼서 코딩 모드 결과물이 앱 소스 코드 폴더에 섞여 들어가는
-  // 문제가 있었다 — projects\ 자체는 이미 있는 폴더이므로 안전한 기본값이다.)
-  const cwd = projectName ? path.join(PROJECTS_DIR, projectName) : PROJECTS_DIR;
+  const targetProject = projectName || DEFAULT_PROJECT_NAME;
+  const cwd = path.join(PROJECTS_DIR, targetProject);
+  if (!fs.existsSync(cwd)) {
+    fs.mkdirSync(cwd, { recursive: true });
+  }
 
   try {
     const responseText = await claude.send({

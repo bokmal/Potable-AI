@@ -480,6 +480,21 @@ html[data-theme='light'] .settings-panel {
   font-size: 12px;
 }
 
+.new-project-input {
+  background: var(--bg-deep);
+  border: 1px solid var(--idle);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 12px;
+  width: 150px;
+  outline: none;
+  box-shadow: 0 0 8px rgba(79, 209, 224, 0.2);
+}
+.new-project-input::placeholder {
+  color: var(--text-faint);
+}
+
 .conversation {
   width: 100%;
   max-width: 760px;
