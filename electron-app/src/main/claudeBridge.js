@@ -38,6 +38,11 @@ class ClaudeBridge {
         env,
       });
 
+      // 이 프로세스는 stdin으로 아무것도 보내지 않는다(프롬프트는 인자로 전달).
+      // stdin을 열어둔 채로 두면 CLI가 "혹시 파이프로 입력이 오나?" 하고 몇 초
+      // 대기하다 경고를 낸다 — 즉시 EOF를 보내 그 대기를 건너뛴다.
+      child.stdin.end();
+
       let stdout = '';
       let stderr = '';
 
@@ -59,7 +64,8 @@ class ClaudeBridge {
         if (code === 0) {
           resolve(stdout.trim());
         } else {
-          reject(new Error(stderr.trim() || `Claude Code CLI 가 코드 ${code} 로 종료되었습니다.`));
+          const detail = stderr.trim() || stdout.trim() || '(출력 없음)';
+          reject(new Error(`Claude Code CLI 가 코드 ${code} 로 종료되었습니다: ${detail}`));
         }
       });
     });
