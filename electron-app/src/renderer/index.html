@@ -12,34 +12,50 @@
     <div class="scanline" aria-hidden="true"></div>
     <div class="radar-glow" aria-hidden="true"></div>
 
-    <!-- 화면에 상시 존재하는 건 이 메뉴 하나뿐 — 프로젝트/상태/작업 공간/
-         설정은 전부 여기서 열고 닫는 떠 있는 창(.floating-panel)이다. -->
+    <!-- 화면에 상시 존재하는 건 이 메뉴 하나뿐 — 대기 상태에선 메뉴 아이콘 +
+         AI 코어 + 입력창, 이 세 가지만 보인다. 모드 선택/새 대화/최근 대화/
+         프로젝트 전체 보기/상태/작업 공간/설정은 전부 이 메뉴 안이나, 메뉴에서
+         열고 닫는 떠 있는 창(.floating-panel)으로 옮겼다. -->
     <div class="os-menu">
       <button id="os-menu-toggle" class="os-menu-trigger" type="button" title="메뉴">
         <span class="brand-mark" aria-hidden="true">◉</span>
         <span class="os-menu-trigger-label">CAELUS</span>
       </button>
       <div id="os-menu-list" class="os-menu-list" hidden>
-        <button type="button" class="os-menu-item" data-panel-target="panel-projects">프로젝트</button>
-        <button type="button" class="os-menu-item" data-panel-target="panel-status">작업 상태</button>
-        <button type="button" class="os-menu-item" data-panel-target="panel-workspace">작업 공간</button>
-        <button id="settings-toggle" type="button" class="os-menu-item">설정</button>
+        <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
+          <button type="button" class="mode-btn active" data-mode="chat">일반 대화</button>
+          <button type="button" class="mode-btn" data-mode="code">코딩 작업</button>
+        </div>
+
+        <button id="new-thread-btn" type="button" class="menu-new">
+          <span class="menu-new-plus" aria-hidden="true">+</span>새 대화 시작
+        </button>
+
         <div class="os-menu-divider"></div>
-        <button id="fullscreen-toggle" type="button" class="os-menu-item">전체화면 HUD</button>
+        <div class="menu-section-title">최근 대화</div>
+        <div id="menu-recent" class="menu-recent"></div>
+        <button type="button" class="os-menu-item" data-panel-target="panel-projects">전체 프로젝트 보기</button>
+
+        <div class="os-menu-divider"></div>
+        <div class="os-menu-tools">
+          <button type="button" class="os-menu-tool" data-panel-target="panel-status" title="작업 상태">
+            <span class="omt-ic" aria-hidden="true">◈</span>상태
+          </button>
+          <button type="button" class="os-menu-tool" data-panel-target="panel-workspace" title="작업 공간">
+            <span class="omt-ic" aria-hidden="true">▤</span>작업공간
+          </button>
+          <button id="settings-toggle" type="button" class="os-menu-tool" title="설정">
+            <span class="omt-ic" aria-hidden="true">⚙</span>설정
+          </button>
+          <button id="fullscreen-toggle" type="button" class="os-menu-tool" title="전체화면 HUD">
+            <span class="omt-ic" aria-hidden="true">⛶</span>전체화면
+          </button>
+        </div>
       </div>
     </div>
 
     <main class="main command-center" aria-label="AI 대화 작업공간">
-      <section class="stage command-card" aria-label="CAELUS AI Core">
-        <div class="hud-corner tl"></div>
-        <div class="hud-corner tr"></div>
-        <div class="hud-corner bl"></div>
-        <div class="hud-corner br"></div>
-        <div class="stage-grid-lines" aria-hidden="true"></div>
-        <div class="stage-header">
-          <span>CAELUS CORE</span>
-          <span>LOCAL SESSION ACTIVE</span>
-        </div>
+      <section class="stage" aria-label="CAELUS AI Core">
         <div class="core-zone">
           <div id="ring" class="jarvis-ring idle" aria-hidden="true">
             <div class="ring-orbit orbit-a"></div>
@@ -59,10 +75,9 @@
         </div>
       </section>
 
-      <section class="conversation-shell command-card" aria-label="대화">
-        <div id="thread-status" class="thread-status">
+      <section class="conversation-shell" aria-label="대화">
+        <div id="thread-status" class="thread-status" hidden>
           <span id="thread-status-label" class="thread-status-label">📁 일반 대화</span>
-          <button id="new-thread-btn" class="text-btn" type="button">새 대화</button>
         </div>
         <div id="thread-warning" class="thread-warning" hidden>
           대화가 길어졌습니다. 새 대화로 시작하면 속도와 정확도가 좋아질 수 있습니다.
@@ -72,35 +87,11 @@
           <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화</button>
         </div>
 
-        <div id="conversation" class="conversation">
-          <div id="conversation-empty" class="conversation-empty">
-            <div class="conversation-empty-mark">◉</div>
-            <div class="conversation-empty-title">CAELUS 준비 완료</div>
-            <div class="conversation-empty-hint">아래 입력창에 원하는 작업을 적어주세요. 기존 Claude Code 연결을 통해 로컬 프로젝트에서 작업합니다.</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="control-strip command-card compact" aria-label="자주 쓰는 명령과 모드 선택">
-        <div id="preset-row" class="preset-row">
-          <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 분석</button>
-          <button type="button" class="preset-btn" data-text="지금까지 변경된 파일이 있는지 git 상태를 확인해줘">Git 상태</button>
-          <button type="button" class="preset-btn" data-text="이 프로젝트의 테스트를 실행해줘">테스트 실행</button>
-        </div>
-
-        <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
-          <button type="button" class="mode-btn active" data-mode="chat">
-            일반 대화 <span class="mode-hint">설명/상담</span>
-          </button>
-          <button type="button" class="mode-btn" data-mode="code">
-            코딩 작업 <span class="mode-hint">프로젝트 수정</span>
-          </button>
-        </div>
+        <div id="conversation" class="conversation"></div>
       </section>
 
       <form id="command-form" class="command-bar command-card compact">
         <label class="sr-only" for="command-input">명령 입력</label>
-        <span class="command-prefix">명령</span>
         <input id="command-input" class="command-input" type="text"
                placeholder="작업 내용을 입력하세요...  Enter 전송  /  Esc 취소" autocomplete="off" />
         <button type="button" id="cancel-btn" class="cancel-btn" hidden>중지</button>
@@ -206,7 +197,7 @@
           <span>전체 기록 삭제</span>
           <span class="settings-value">삭제</span>
         </button>
-        <p class="settings-note">기존 Claude Code 실행, 프로젝트 저장, IPC 흐름은 그대로이고 화면 레이어만 창 형태로 바뀌었습니다.</p>
+        <p class="settings-note">기존 Claude Code 실행, 프로젝트 저장, IPC 흐름은 그대로이고 화면 레이어만 바뀌었습니다.</p>
       </div>
     </div>
   </div>

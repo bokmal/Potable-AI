@@ -141,7 +141,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .command-card.compact { border-radius: var(--radius-md); }
 
-.main { position: relative; z-index: 1; min-width: 0; width: 100%; max-width: 760px; display: grid; grid-template-rows: var(--idle-stage-row, 280px) minmax(0, 1fr) auto auto; gap: 12px; min-height: 0; }
+.main { position: relative; z-index: 1; min-width: 0; width: 100%; max-width: 760px; display: grid; grid-template-rows: var(--idle-stage-row, 280px) minmax(0, 1fr) auto; gap: 12px; min-height: 0; }
 
 .brand-mark {
   width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto;
@@ -172,7 +172,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .os-menu-trigger .brand-mark { width: 30px; height: 30px; font-size: 15px; }
 .os-menu-trigger-label { font-family: var(--font-mono); font-weight: 800; letter-spacing: 0.16em; font-size: 13px; }
 .os-menu-list {
-  position: absolute; top: calc(100% + 8px); left: 0; min-width: 210px;
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 244px;
   display: flex; flex-direction: column; gap: 3px;
   padding: 8px;
   border: 1px solid var(--line-strong);
@@ -189,6 +189,45 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .os-menu-item:hover { background: rgba(93,232,255,0.1); color: var(--text); }
 .os-menu-divider { height: 1px; margin: 5px 4px; background: var(--line); }
+
+/* 메뉴 안으로 들어온 모드 선택 — 기존 .mode-toggle/.mode-btn을 그대로 쓰되
+   메뉴 폭에 맞게 좀 더 작게. */
+.os-menu-list .mode-toggle { margin: 0 0 8px; }
+.os-menu-list .mode-btn { min-width: 0; min-height: 34px; font-size: 12px; }
+
+.menu-new {
+  width: 100%; display: flex; align-items: center; gap: 9px;
+  text-align: left; padding: 10px 10px; border-radius: 12px;
+  font-size: 13px; font-weight: 700; color: var(--idle);
+}
+.menu-new:hover { background: rgba(93,232,255,0.1); }
+.menu-new-plus {
+  flex: 0 0 auto; width: 18px; height: 18px; display: grid; place-items: center;
+  border: 1px solid var(--line-strong); border-radius: 50%; font-size: 12px;
+}
+
+.menu-section-title {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-faint); padding: 4px 10px 4px;
+}
+.menu-recent { display: grid; gap: 2px; margin-bottom: 4px; }
+.menu-recent-empty { padding: 8px 10px; font-size: 12px; color: var(--text-muted); }
+.menu-thread-item {
+  width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 10px; border-radius: 12px;
+}
+.menu-thread-item:hover { background: rgba(93,232,255,0.07); }
+.menu-thread-item .mt-title { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-thread-item .mt-meta { font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.02em; }
+
+.os-menu-tools { display: flex; gap: 4px; padding: 2px 2px 0; }
+.os-menu-tool {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 9px 2px 8px; border-radius: 12px; text-align: center;
+  font-size: 9.5px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.04em;
+}
+.os-menu-tool:hover { background: rgba(93,232,255,0.07); color: var(--text-soft); }
+.omt-ic { font-size: 15px; color: var(--idle); }
 
 /* --- 떠 있는 창들(프로젝트/상태/작업 공간/설정) — 메뉴에서 열고 닫으며,
    여러 개를 동시에 띄워둘 수 있고 헤더를 드래그해서 옮길 수 있다. 실제
@@ -275,6 +314,13 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .secondary-section { margin-top: 16px; }
 .tree-section-title { color: var(--text-muted); font-size: 10px; }
 .tree-groups, .history-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+/* renderHistoryTree()/renderSearchResults()가 검색 진입/이탈 시 이 세
+   엘리먼트의 .hidden을 토글하는데, 위에서 display:flex/grid를 이미 정해둬서
+   그게 hidden의 기본 display:none을 덮어쓰고 있었다 — 검색 중에도 트리
+   섹션 헤더/그룹이 계속 보이던(또는 그 반대) 버그. 명시적으로 다시 숨긴다. */
+.tree-section-header[hidden],
+.tree-groups[hidden],
+.history-list[hidden] { display: none; }
 .tree-group { display: grid; gap: 7px; }
 .tree-group-header {
   display: grid;
@@ -328,31 +374,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .settings-divider { height: 1px; margin: 4px; background: var(--line); }
 .settings-note { color: var(--text-muted); font-size: 12px; line-height: 1.6; padding: 2px 2px 0; }
 
+/* 코어 무대는 이제 카드가 아니다 — 배경 위에 코어가 그냥 떠 있다(테두리/
+   HUD 브래킷/헤더 라벨 없음). 그래서 .stage에는 padding만 남는다. */
 .stage { padding: 16px; overflow: hidden; }
-.stage::after {
-  content: "";
-  position: absolute;
-  inset: 10px;
-  border-radius: calc(var(--radius-lg) - 8px);
-  pointer-events: none;
-  border: 1px solid rgba(93,232,255,0.045);
-}
-.stage-grid-lines {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.42;
-  background:
-    radial-gradient(circle at 50% 55%, rgba(89,231,255,0.18), transparent 32%),
-    repeating-linear-gradient(90deg, transparent 0 57px, rgba(91,231,255,0.07) 58px, transparent 59px),
-    repeating-linear-gradient(0deg, transparent 0 57px, rgba(91,231,255,0.035) 58px, transparent 59px);
-}
-.stage-header { position: relative; z-index: 1; display: flex; justify-content: space-between; color: var(--text-faint); font-size: 10px; }
-.hud-corner { position: absolute; width: 38px; height: 38px; border-color: rgba(93,232,255,0.44); z-index: 2; }
-.hud-corner.tl { left: 12px; top: 12px; border-left: 1px solid; border-top: 1px solid; }
-.hud-corner.tr { right: 12px; top: 12px; border-right: 1px solid; border-top: 1px solid; }
-.hud-corner.bl { left: 12px; bottom: 12px; border-left: 1px solid; border-bottom: 1px solid; }
-.hud-corner.br { right: 12px; bottom: 12px; border-right: 1px solid; border-bottom: 1px solid; }
 .core-zone { position: relative; z-index: 1; height: calc(100% - 20px); min-height: 214px; display: grid; place-items: center; gap: 4px; }
 .jarvis-ring {
   position: relative;
@@ -399,6 +423,11 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .conversation-shell { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); padding: 0; min-height: 0; overflow: hidden; }
 .thread-status, .thread-warning, .resume-banner { position: relative; z-index: 1; }
 .thread-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+/* 지금 대화 중이거나(턴 수 > 0) 과거 기록을 보고 있을 때만 보이는 캡션이라
+   기본은 hidden — 위 display:flex가 hidden의 기본 display:none을 덮어쓰지
+   않도록(.resume-banner/.os-menu-list에서 겪은 것과 같은 버그) 여기서
+   확실히 다시 숨긴다. */
+.thread-status[hidden] { display: none; }
 .thread-status-label { color: var(--text-soft); font-weight: 700; font-size: 13px; }
 .thread-warning, .resume-banner { padding: 10px 14px; color: var(--warning); border-bottom: 1px solid rgba(255,204,102,0.17); background: rgba(255,204,102,0.055); font-size: 13px; }
 .resume-banner { color: var(--idle); display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(93,232,255,0.055); border-bottom-color: rgba(93,232,255,0.17); }
@@ -406,13 +435,10 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
    대화하기 배너가 숨겨져 있어야 할 때도 계속 보이던 버그 — hidden일 때는
    다시 확실히 숨긴다. */
 .resume-banner[hidden] { display: none; }
+/* 대화가 없을 땐 이 영역엔 아무 텍스트/카드도 없다 — 그냥 빈 공간(idle일
+   땐 코어와 입력창 사이의 여백)일 뿐이다. */
 .conversation { position: relative; z-index: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 .conversation::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(93,232,255,0.03), transparent 12%); }
-.conversation-empty { height: 100%; min-height: 180px; display: grid; place-content: center; justify-items: center; text-align: center; color: var(--text-muted); }
-.conversation.has-messages .conversation-empty { display: none; }
-.conversation-empty-mark { width: 54px; height: 54px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--idle); text-shadow: 0 0 18px currentColor; margin-bottom: 14px; background: rgba(93,232,255,0.06); }
-.conversation-empty-title { color: var(--text); font-size: 22px; font-weight: 800; margin-bottom: 7px; }
-.conversation-empty-hint { max-width: 540px; line-height: 1.65; font-size: 13px; }
 .bubble {
   position: relative;
   max-width: min(820px, 88%);
@@ -438,16 +464,14 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .bubble pre { overflow-x: auto; padding: 13px; border: 1px solid rgba(91,231,255,0.15); border-radius: 13px; background: rgba(1, 5, 10, 0.58); }
 .bubble code { font-family: var(--font-mono); color: var(--idle); }
 
-.control-strip { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 10px 12px; align-items: center; }
-.preset-row { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
-.preset-btn { min-height: 36px; padding: 0 13px; font-size: 12px; color: var(--text-soft); }
+/* 자주 쓰는 명령 버튼/모드 선택 줄은 더 이상 화면에 상시 떠 있지 않는다 —
+   모드 선택은 좌상단 메뉴 안으로 옮겼다(.os-menu-list .mode-toggle 참고). */
 .mode-toggle { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 16px; background: rgba(0,0,0,0.20); }
 .mode-btn { min-width: 112px; min-height: 42px; border-radius: 12px; padding: 6px 10px; display: grid; gap: 2px; text-align: center; font-weight: 800; }
 .mode-btn.active { color: #041014; border-color: rgba(186,255,255,0.78); background: linear-gradient(135deg, rgba(93,232,255,0.92), rgba(186,255,255,0.70)); box-shadow: 0 0 26px rgba(93,232,255,0.14); }
 .mode-hint { font-size: 9px; color: inherit; opacity: .72; }
 
-.command-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px; }
-.command-prefix { color: var(--idle); font-size: 11px; font-weight: 900; }
+.command-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px; }
 .command-input { height: 46px; padding: 0 15px; font-size: 14px; border-radius: 15px; }
 .cancel-btn, .command-submit { min-height: 44px; padding: 0 18px; font-size: 13px; font-weight: 900; }
 .cancel-btn { color: var(--warning); }
@@ -479,10 +503,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   body { min-width: 0; overflow: auto; }
   .app { height: auto; min-height: 100vh; padding: 12px; }
   .main { min-height: 720px; }
-  .control-strip, .command-bar { grid-template-columns: 1fr; display: grid; align-items: stretch; }
-  .preset-row { justify-content: stretch; }
-  .preset-btn, .hud-btn, .text-btn, .mode-btn { width: 100%; }
-  .mode-toggle { grid-template-columns: 1fr; }
+  .command-bar { grid-template-columns: 1fr; display: grid; align-items: stretch; }
+  .hud-btn, .text-btn { width: 100%; }
+  .os-menu-list { width: calc(100vw - 52px); max-width: 300px; }
   .floating-panel { width: calc(100vw - 36px); max-width: 340px; }
 }
 
@@ -503,7 +526,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 body[data-ui-phase="active"] .main {
-  grid-template-rows: var(--active-stage-row) minmax(0, 1fr) auto auto;
+  grid-template-rows: var(--active-stage-row) minmax(0, 1fr) auto;
 }
 
 .stage {
@@ -511,18 +534,6 @@ body[data-ui-phase="active"] .main {
 }
 body[data-ui-phase="active"] .stage {
   padding: 8px 18px;
-}
-
-.stage-header,
-.hud-corner,
-.stage-grid-lines {
-  transition: opacity 0.3s ease;
-}
-body[data-ui-phase="active"] .stage-header,
-body[data-ui-phase="active"] .hud-corner,
-body[data-ui-phase="active"] .stage-grid-lines {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .core-zone {

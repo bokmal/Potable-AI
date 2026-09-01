@@ -23,6 +23,7 @@ const exportBtn = document.getElementById('export-btn');
 const checkUpdateBtn = document.getElementById('check-update-btn');
 const updateStatus = document.getElementById('update-status');
 const usageLinkBtn = document.getElementById('usage-link-btn');
+const threadStatusEl = document.getElementById('thread-status');
 const threadStatusLabel = document.getElementById('thread-status-label');
 const newThreadBtn = document.getElementById('new-thread-btn');
 const threadWarning = document.getElementById('thread-warning');
@@ -30,6 +31,7 @@ const resumeBanner = document.getElementById('resume-banner');
 const resumeThreadBtn = document.getElementById('resume-thread-btn');
 const osMenuToggle = document.getElementById('os-menu-toggle');
 const osMenuList = document.getElementById('os-menu-list');
+const menuRecentEl = document.getElementById('menu-recent');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -139,7 +141,7 @@ osMenuToggle.addEventListener('click', (event) => {
   osMenuList.hidden = !osMenuList.hidden;
 });
 
-document.querySelectorAll('.os-menu-item[data-panel-target]').forEach((btn) => {
+document.querySelectorAll('[data-panel-target]').forEach((btn) => {
   btn.addEventListener('click', () => {
     openPanel(document.getElementById(btn.dataset.panelTarget));
     closeOsMenu();
@@ -361,7 +363,6 @@ function addBubble(role, text) {
 }
 
 function clearConversation() {
-  // #conversation-empty(빈 상태 안내)는 그대로 두고 말풍선만 지운다.
   conversation.querySelectorAll('.bubble').forEach((el) => el.remove());
   conversation.classList.remove('has-messages');
   setUiPhase('idle');
@@ -385,6 +386,7 @@ async function loadProjects() {
 async function loadHistory() {
   allTasksCache = await window.caelus.getHistory();
   renderHistoryTree();
+  renderMenuRecent();
 }
 
 // task.project가 지금 존재하는 프로젝트 폴더 목록에 없으면(프로젝트 삭제 후
@@ -425,6 +427,50 @@ function threadTurnCount(threadEntry) {
 
 function threadLatestTask(threadEntry) {
   return threadEntry.tasks[0];
+}
+
+// 메뉴 안 "최근 대화" — 화면을 최대한 비워두고 싶다는 요청에 맞춰, 전체
+// 프로젝트 트리 대신 최근 스레드 몇 개만 메뉴에서 바로 열 수 있게 한다.
+// 전체 관리(검색/이름변경/삭제 등)가 필요하면 "전체 프로젝트 보기"로
+// #panel-projects를 연다 — 그 기능은 그대로 남아 있다.
+const MENU_RECENT_LIMIT = 4;
+
+function renderMenuRecent() {
+  if (!menuRecentEl) return;
+  menuRecentEl.innerHTML = '';
+
+  const groups = buildThreadGroups(allTasksCache);
+  const flatThreads = [];
+  groups.forEach((threads, project) => {
+    threads.forEach((entry) => flatThreads.push({ project, entry }));
+  });
+  flatThreads.sort(
+    (a, b) => new Date(threadLatestTask(b.entry).created_at) - new Date(threadLatestTask(a.entry).created_at)
+  );
+
+  if (flatThreads.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'menu-recent-empty';
+    empty.textContent = '아직 대화 기록이 없습니다.';
+    menuRecentEl.appendChild(empty);
+    return;
+  }
+
+  flatThreads.slice(0, MENU_RECENT_LIMIT).forEach(({ project, entry }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'menu-thread-item';
+    const turns = threadTurnCount(entry);
+    btn.innerHTML = `
+      <span class="mt-title">${escapeHtml(threadDisplayTitle(entry))}</span>
+      <span class="mt-meta">${escapeHtml(projectLabel(project))} · ${turns}턴</span>
+    `;
+    btn.addEventListener('click', () => {
+      viewThread(project, entry);
+      closeOsMenu();
+    });
+    menuRecentEl.appendChild(btn);
+  });
 }
 
 function makeGroupHeader(project, threadCount) {
@@ -875,6 +921,10 @@ async function refreshThreadStatus() {
   const info = await window.caelus.getThreadInfo(activeProject);
   const turnLabel = info.turnCount > 0 ? ` · ${info.turnCount}턴` : '';
   threadStatusLabel.textContent = `📁 ${projectLabel(activeProject)}${turnLabel}`;
+  // 화면엔 기본적으로 메뉴/코어/입력창만 두고 싶다는 요청에 맞춰, 이
+  // 캡션도 정말 보여줄 맥락이 있을 때만(지금 턴이 쌓였거나, 과거 기록을
+  // 보고 있는 중일 때만) 나타난다 — 완전히 빈 새 대화 상태에선 숨는다.
+  threadStatusEl.hidden = info.turnCount === 0 && !viewingThread;
   threadWarning.hidden = info.turnCount < LONG_THREAD_TURN_THRESHOLD;
   newThreadBtn.disabled = isBusy;
   return info;
@@ -896,16 +946,6 @@ async function startNewThreadForProject(project) {
 }
 
 newThreadBtn.addEventListener('click', () => startNewThreadForProject(activeProject));
-
-// ===================================================================
-// 자주 쓰는 명령(프리셋) — 입력창에 채워주기만 함(바로 전송하지 않음)
-// ===================================================================
-document.querySelectorAll('.preset-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    input.value = btn.dataset.text;
-    input.focus();
-  });
-});
 
 // ===================================================================
 // 대화 내보내기
