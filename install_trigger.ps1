@@ -6,18 +6,19 @@
   - 실행할 작업(예약 작업, Task Scheduler Task)과 그걸 깨우는 신호(WMI 이벤트
     구독)를 분리한 구조다.
 
-  - 예약 작업(Task): 실제로 "볼륨 시리얼로 드라이브를 재탐색해 start.bat을
-    실행"하는 인라인 스크립트를 담고 있다. 이 작업 자체엔 트리거를 걸지
-    않는다 — 아래 WMI 구독이 필요할 때 `schtasks /run` 으로 깨운다.
-    (Task Scheduler에 등록되며 로그온 사용자 세션에서 실행되므로 CAELUS
-    창이 화면에 정상적으로 보인다.)
+  - 예약 작업(Task): "볼륨 시리얼로 드라이브를 재탐색해 start.bat을 실행"하는
+    리졸버 스크립트(`%ProgramData%\CAELUS\resolve-and-launch-<시리얼>.ps1`,
+    이 PC에 저장, USB 아님)를 실행한다. 이 작업 자체엔 트리거를 걸지 않는다
+    — 아래 WMI 구독이 필요할 때 `schtasks /run` 으로 깨운다. (Task
+    Scheduler에 등록되며 로그온 사용자 세션에서 실행되므로 CAELUS 창이
+    화면에 정상적으로 보인다.)
 
   - WMI 영구 이벤트 구독(Filter + CommandLineEventConsumer + Binding):
     `Win32_VolumeChangeEvent`(EventType=2, 볼륨 마운트/도착 — Windows
     자동재생 팝업이 쓰는 것과 같은 신호)를 구독해, 어떤 볼륨이 마운트되든
     위 예약 작업을 `schtasks /run`으로 깨운다. 어떤 USB든 반응하지만,
-    "이게 진짜 우리 USB인지"는 예약 작업 자신의 인라인 스크립트가 볼륨
-    시리얼로 다시 확인하므로 다른 USB를 꽂아도 무반응이다.
+    "이게 진짜 우리 USB인지"는 예약 작업이 실행하는 리졸버 스크립트가
+    볼륨 시리얼로 다시 확인하므로 다른 USB를 꽂아도 무반응이다.
 
     ※ 원래는 Task Scheduler의 이벤트 트리거를 "Microsoft-Windows-
     DriverFrameworks-UserMode/Operational" 로그의 Event ID 2003(드라이버
@@ -28,10 +29,10 @@
     HDD 등)와 무관하게 "드라이브 문자가 배정되는 순간"에 항상 발생하므로
     이 방식으로 바꿨다. 또한 WMI 영구 구독은 재부팅 후에도 유지된다.
 
-  - 드라이브 문자 변동 대응: 예약 작업의 인라인 스크립트는 USB 위의 파일
-    경로를 직접 참조하지 않는다. 볼륨 시리얼로 현재 드라이브 문자를 매번
-    재탐색한 뒤 그 경로의 start.bat 을 실행한다. find_usb_by_serial.ps1 은
-    동일한 탐색 로직을 담은 독립 실행 가능한 유틸리티(수동 점검용)다.
+  - 드라이브 문자 변동 대응: 리졸버 스크립트는 USB 위의 파일 경로를 직접
+    참조하지 않는다. 볼륨 시리얼로 현재 드라이브 문자를 매번 재탐색한 뒤
+    그 경로의 start.bat 을 실행한다. find_usb_by_serial.ps1 은 동일한 탐색
+    로직을 담은 독립 실행 가능한 유틸리티(수동 점검용)다.
 
 .PARAMETER UsbRoot
   CAELUS 루트 폴더의 현재 전체 경로 (예: "E:\PortableDev")
@@ -78,7 +79,23 @@ try {
     # find_usb_by_serial.ps1 과 동일한 알고리즘: 볼륨 시리얼로 현재 드라이브
     # 문자를 재탐색한 뒤 그 드라이브의 <relativePath>\start.bat 을 실행한다.
     # 일치하는 드라이브가 없으면(=우리 USB가 아니거나 이미 뽑힘) 조용히 종료.
-    $inlineScript = @"
+    #
+    # 이 로직을 예약 작업의 Arguments에 -EncodedCommand로 통째로(base64)
+    # 욱여넣었더니, 그 문자열이 1000자를 넘어가면서 Task Scheduler의
+    # Arguments 필드 길이 제한(오래된 Windows에서 ~261자 근처부터 조용히
+    # 잘리는 것으로 알려진 문제)에 걸려, 실행 시점에 깨진 인코딩으로 실패
+    # (종료 코드 1)하는 것이 실사용 중 확인됐다. 등록 시점엔 에러가 안 나고
+    # "조용히" 잘리기 때문에 알아차리기 어려운 문제였다. 대신 이 로직을 이
+    # PC의 ProgramData에 실제 .ps1 파일로 저장해두고, 예약 작업은 짧은
+    # -File 인자로 그 경로만 가리키게 한다. USB가 아니라 이 PC에 저장하므로
+    # USB가 없어도, 드라이브 문자가 바뀌어도 이 파일 자체는 항상 존재한다.
+    $resolverDir = Join-Path $env:ProgramData "CAELUS"
+    if (-not (Test-Path -LiteralPath $resolverDir)) {
+        New-Item -ItemType Directory -Path $resolverDir -Force | Out-Null
+    }
+    $resolverPath = Join-Path $resolverDir "resolve-and-launch-$serial.ps1"
+
+    $resolverScript = @"
 `$serial = '$serial'
 `$relativePath = '$relativePath'
 `$disks = Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction SilentlyContinue
@@ -92,9 +109,7 @@ foreach (`$disk in `$disks) {
     }
 }
 "@
-
-    $bytes = [System.Text.Encoding]::Unicode.GetBytes($inlineScript)
-    $encodedCommand = [Convert]::ToBase64String($bytes)
+    Set-Content -LiteralPath $resolverPath -Value $resolverScript -Encoding UTF8 -Force
 
     $taskName = "CAELUS_AutoRun_$serial"
 
@@ -106,7 +121,7 @@ foreach (`$disk in `$disks) {
     }
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-        -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand $encodedCommand"
+        -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$resolverPath`""
 
     $settings = New-ScheduledTaskSettingsSet `
         -MultipleInstances IgnoreNew `
@@ -165,9 +180,9 @@ foreach (`$disk in `$disks) {
 
     $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments @{
         Name                = $consumerName
-        # "우리 USB인지"는 여기서 판단하지 않는다 — 위 예약 작업의 인라인
-        # 스크립트가 볼륨 시리얼로 다시 확인하므로, 여기서는 그냥 깨우기만
-        # 한다. 일치하지 않으면 예약 작업이 몇 ms 안에 조용히 끝난다.
+        # "우리 USB인지"는 여기서 판단하지 않는다 — 위 예약 작업이 실행하는
+        # 리졸버 스크립트가 볼륨 시리얼로 다시 확인하므로, 여기서는 그냥
+        # 깨우기만 한다. 일치하지 않으면 예약 작업이 몇 ms 안에 조용히 끝난다.
         CommandLineTemplate = "schtasks.exe /run /tn `"$taskName`""
     }
 
