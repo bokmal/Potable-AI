@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, clipboard, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -98,8 +98,14 @@ ipcMain.handle('caelus:clear-history', () => {
   return true;
 });
 
-ipcMain.handle('caelus:get-usage', () => {
-  return store.getUsageStats();
+// --- IPC: 실제 Claude 계정 사용량 페이지를 기본 브라우저로 열기 ---
+// 세션(5시간)/주간 한도 %는 Claude 계정(구독 플랜) 자체의 정보라 CLI나 이
+// 저장소 코드로는 조회할 공식적인 방법이 없다(실사용 중 확인됨,
+// `claude --help`에 관련 명령 없음). 흉내내는 대신 진짜 페이지로 바로
+// 연결해준다.
+ipcMain.handle('caelus:open-usage-page', () => {
+  shell.openExternal('https://claude.ai/settings/usage');
+  return true;
 });
 
 // --- IPC: projects\ 하위 폴더 목록 (프로젝트 전환용) ---

@@ -105,14 +105,21 @@ body {
   margin-bottom: 18px;
   font-size: 12px;
 }
-.usage-row {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text);
-  padding: 2px 0;
+.usage-link-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--idle);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.usage-row span:first-child {
-  color: var(--text-muted);
+.usage-link-btn:hover {
+  border-color: var(--idle);
+  box-shadow: 0 0 8px rgba(79, 209, 224, 0.25);
 }
 .usage-note {
   margin-top: 6px;

@@ -16,9 +16,7 @@ const newProjectBtn = document.getElementById('new-project-btn');
 const exportBtn = document.getElementById('export-btn');
 const checkUpdateBtn = document.getElementById('check-update-btn');
 const updateStatus = document.getElementById('update-status');
-const usageToday = document.getElementById('usage-today');
-const usageSession = document.getElementById('usage-session');
-const usageWeekly = document.getElementById('usage-weekly');
+const usageLinkBtn = document.getElementById('usage-link-btn');
 
 const STATE_LABEL = {
   idle: '대기 중',
@@ -271,26 +269,12 @@ clearHistoryBtn.addEventListener('click', async () => {
 });
 
 // ===================================================================
-// 사용량 위젯 (로컬 기록 기반 추정치 — README 참고)
+// 사용량 — 세션(5시간)/주간 한도 %는 Claude 계정 자체의 정보라 CLI로 조회할
+// 방법이 없다(실사용 중 확인됨). 흉내내는 대신 실제 페이지를 열어준다.
 // ===================================================================
-function formatEta(resetsAtIso) {
-  if (!resetsAtIso) return '';
-  const diffMs = new Date(resetsAtIso).getTime() - Date.now();
-  if (diffMs <= 0) return '곧 초기화';
-  const totalMinutes = Math.round(diffMs / 60000);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return h > 0 ? `${h}시간 ${m}분 후` : `${m}분 후`;
-}
-
-async function loadUsage() {
-  const usage = await window.caelus.getUsage();
-  usageToday.textContent = `${usage.today}회`;
-  usageSession.textContent =
-    usage.session.count > 0 ? `${usage.session.count}회 · ${formatEta(usage.session.resetsAt)}` : '0회';
-  usageWeekly.textContent =
-    usage.weekly.count > 0 ? `${usage.weekly.count}회 · ${formatEta(usage.weekly.resetsAt)}` : '0회';
-}
+usageLinkBtn.addEventListener('click', () => {
+  window.caelus.openUsagePage();
+});
 
 // ===================================================================
 // 프로젝트(작업 폴더) 선택
@@ -440,7 +424,6 @@ form.addEventListener('submit', async (event) => {
     pendingTaskId = null;
     setBusy(false);
     loadHistory();
-    loadUsage();
   }
 });
 
@@ -467,5 +450,4 @@ document.addEventListener('keydown', (event) => {
 // ===================================================================
 setState('idle');
 loadHistory();
-loadUsage();
 loadProjects();

@@ -137,50 +137,10 @@ class Store {
     this._save();
   }
 
-  /**
-   * 사용량 위젯용 로컬 집계. Claude Code CLI에 남은 한도/실제 초기화 시각을
-   * 조회하는 공식적인 방법이 확인되지 않아, 여기서는 이 USB에 저장된 작업
-   * 기록만으로 만든 "추정치"다. 실제 계정 한도와 다를 수 있다.
-   *
-   * - session: 최근 5시간 내 작업 수. 이 창의 "초기화 예정 시각"은 그 5시간
-   *   창에서 가장 오래된 작업 시각 + 5시간으로 추정한다(Claude의 일반적인
-   *   세션 한도 주기를 참고한 근사치).
-   * - weekly: 최근 7일 내 작업 수. 마찬가지로 가장 오래된 작업 시각 + 7일을
-   *   "초기화 예정 시각" 추정치로 표시한다.
-   */
-  getUsageStats() {
-    const now = Date.now();
-    const FIVE_HOURS = 5 * 60 * 60 * 1000;
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-
-    const within = (windowMs) =>
-      this.data.tasks
-        .map((t) => Date.parse(t.created_at))
-        .filter((t) => !Number.isNaN(t) && now - t < windowMs)
-        .sort((a, b) => a - b);
-
-    const buildWindow = (windowMs) => {
-      const timestamps = within(windowMs);
-      if (timestamps.length === 0) {
-        return { count: 0, resetsAt: null };
-      }
-      const oldest = timestamps[0];
-      return { count: timestamps.length, resetsAt: new Date(oldest + windowMs).toISOString() };
-    };
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayCount = this.data.tasks.filter(
-      (t) => Date.parse(t.created_at) >= todayStart.getTime()
-    ).length;
-
-    return {
-      today: todayCount,
-      session: buildWindow(FIVE_HOURS),
-      weekly: buildWindow(SEVEN_DAYS),
-      isEstimate: true,
-    };
-  }
+  // 사용량(%) 위젯은 로컬 추정치 대신 실제 Claude 계정 사용량 페이지로
+  // 바로 연결하는 방식으로 대체했다 — main.js의 'caelus:open-usage-page'
+  // 참고. 세션/주간 한도 %는 Claude 계정(구독 플랜) 자체의 정보라 이 USB에
+  // 저장된 로컬 작업 기록만으로는 정확히 알 수 없기 때문이다.
 }
 
 module.exports = { Store };

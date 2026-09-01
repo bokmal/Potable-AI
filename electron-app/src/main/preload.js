@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('caelus', {
   getTask: (taskId) => ipcRenderer.invoke('caelus:get-task', taskId),
   deleteTask: (taskId) => ipcRenderer.invoke('caelus:delete-task', taskId),
   clearHistory: () => ipcRenderer.invoke('caelus:clear-history'),
-  getUsage: () => ipcRenderer.invoke('caelus:get-usage'),
+  openUsagePage: () => ipcRenderer.invoke('caelus:open-usage-page'),
 
   listProjects: () => ipcRenderer.invoke('caelus:list-projects'),
   createProject: (name) => ipcRenderer.invoke('caelus:create-project', name),
