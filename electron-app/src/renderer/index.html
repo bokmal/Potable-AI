@@ -11,32 +11,44 @@
       <div class="brand">
         <span class="brand-mark">&#9678;</span>
         <span class="brand-name">CAELUS</span>
-        <button id="theme-toggle" class="icon-btn" type="button" title="테마 전환">&#9789;</button>
+        <button id="settings-toggle" class="icon-btn" type="button" title="설정">&#9881;</button>
       </div>
 
-      <div class="usage-widget" id="usage-widget">
-        <button id="usage-link-btn" type="button" class="usage-link-btn">
-          Claude 사용량 보기 (5시간·주간 한도 %) &#8599;
-        </button>
-        <div class="usage-note">* claude.ai 계정 페이지가 브라우저로 열립니다</div>
-      </div>
-
-      <div class="sidebar-label-row">
-        <span class="sidebar-label">작업 기록</span>
-        <button id="clear-history-btn" class="icon-btn small" type="button" title="전체 삭제">&#128465;</button>
-      </div>
-      <input id="history-search" class="history-search" type="text" placeholder="기록 검색..." autocomplete="off" />
+      <div class="sidebar-label">작업 기록</div>
+      <input id="history-search" class="history-search" type="text" placeholder="기록 검색  (Ctrl+K)" autocomplete="off" />
       <ul id="history-list" class="history-list"></ul>
+      <div id="history-empty" class="history-empty" hidden>아직 기록이 없습니다</div>
 
-      <div class="update-row">
-        <button id="check-update-btn" class="text-btn" type="button">업데이트 확인</button>
-        <span id="update-status" class="update-status"></span>
+      <div id="settings-panel" class="settings-panel" hidden>
+        <div class="settings-panel-arrow"></div>
+        <button id="theme-toggle" class="settings-item" type="button">
+          <span>테마</span>
+          <span id="theme-toggle-label" class="settings-value">다크 &#9789;</span>
+        </button>
+        <button id="usage-link-btn" class="settings-item" type="button">
+          <span>Claude 사용량</span>
+          <span class="settings-value">열기 &#8599;</span>
+        </button>
+        <button id="check-update-btn" class="settings-item" type="button">
+          <span>업데이트 확인</span>
+          <span id="update-status" class="settings-value"></span>
+        </button>
+        <div class="settings-divider"></div>
+        <button id="clear-history-btn" class="settings-item danger" type="button">
+          <span>작업 기록 전체 삭제</span>
+          <span class="settings-value">&#128465;</span>
+        </button>
       </div>
     </aside>
 
     <main class="main">
       <div class="stage">
+        <div class="hud-corner tl"></div>
+        <div class="hud-corner tr"></div>
+        <div class="hud-corner bl"></div>
+        <div class="hud-corner br"></div>
         <div id="ring" class="jarvis-ring idle">
+          <div class="ring-orbit"></div>
           <div class="ring-core"></div>
           <div class="ring-bars">
             <span></span><span></span><span></span><span></span><span></span>
@@ -51,10 +63,16 @@
           <option value="">(projects\ 루트)</option>
         </select>
         <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 폴더 만들기">&#43;</button>
-        <button id="export-btn" class="text-btn" type="button" style="margin-left: auto;">내보내기</button>
+        <button id="export-btn" class="text-btn" type="button" style="margin-left: auto;">내보내기 &#8595;</button>
       </div>
 
-      <div id="conversation" class="conversation"></div>
+      <div id="conversation" class="conversation">
+        <div id="conversation-empty" class="conversation-empty">
+          <div class="conversation-empty-mark">&#9678;</div>
+          <div class="conversation-empty-title">무엇을 도와드릴까요?</div>
+          <div class="conversation-empty-hint">아래 입력창에 명령을 입력하거나, 자주 쓰는 명령 버튼을 눌러보세요.</div>
+        </div>
+      </div>
 
       <div id="preset-row" class="preset-row">
         <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 요약</button>

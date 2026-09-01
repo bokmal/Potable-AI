@@ -7,10 +7,14 @@ const input = document.getElementById('command-input');
 const submitBtn = form.querySelector('.command-submit');
 const cancelBtn = document.getElementById('cancel-btn');
 const historyList = document.getElementById('history-list');
+const historyEmpty = document.getElementById('history-empty');
 const historySearch = document.getElementById('history-search');
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 const modeButtons = document.querySelectorAll('.mode-btn');
+const settingsToggle = document.getElementById('settings-toggle');
+const settingsPanel = document.getElementById('settings-panel');
 const themeToggle = document.getElementById('theme-toggle');
+const themeToggleLabel = document.getElementById('theme-toggle-label');
 const projectSelect = document.getElementById('project-select');
 const newProjectBtn = document.getElementById('new-project-btn');
 const exportBtn = document.getElementById('export-btn');
@@ -52,7 +56,7 @@ try {
 function applyTheme(theme) {
   currentTheme = theme;
   document.documentElement.setAttribute('data-theme', theme);
-  themeToggle.textContent = theme === 'light' ? '☀' : '☾';
+  themeToggleLabel.textContent = theme === 'light' ? '라이트 ☀' : '다크 ☾';
   try {
     localStorage.setItem('caelus-theme', theme);
   } catch {
@@ -61,6 +65,19 @@ function applyTheme(theme) {
 }
 applyTheme(currentTheme);
 themeToggle.addEventListener('click', () => applyTheme(currentTheme === 'light' ? 'dark' : 'light'));
+
+// ===================================================================
+// 설정 패널 (톱니바퀴 아이콘으로 여닫음)
+// ===================================================================
+settingsToggle.addEventListener('click', (event) => {
+  event.stopPropagation();
+  settingsPanel.hidden = !settingsPanel.hidden;
+});
+document.addEventListener('click', (event) => {
+  if (!settingsPanel.hidden && !settingsPanel.contains(event.target) && event.target !== settingsToggle) {
+    settingsPanel.hidden = true;
+  }
+});
 
 // ===================================================================
 // 응답 모드 (대화 / 코딩)
@@ -177,12 +194,15 @@ function addBubble(role, text) {
   }
 
   conversation.appendChild(el);
+  conversation.classList.add('has-messages');
   conversation.scrollTop = conversation.scrollHeight;
   return { el, contentEl };
 }
 
 function clearConversation() {
-  conversation.innerHTML = '';
+  // #conversation-empty(빈 상태 안내)는 그대로 두고 말풍선만 지운다.
+  conversation.querySelectorAll('.bubble').forEach((el) => el.remove());
+  conversation.classList.remove('has-messages');
 }
 
 // ===================================================================
@@ -206,6 +226,7 @@ function renderHistoryList() {
     : allTasksCache;
 
   historyList.innerHTML = '';
+  historyEmpty.hidden = filtered.length > 0;
   filtered.forEach((task) => {
     const li = document.createElement('li');
     li.className = 'history-item';
@@ -437,7 +458,9 @@ document.addEventListener('keydown', (event) => {
     historySearch.focus();
   }
   if (event.key === 'Escape') {
-    if (isBusy) {
+    if (!settingsPanel.hidden) {
+      settingsPanel.hidden = true;
+    } else if (isBusy) {
       cancelBtn.click();
     } else if (document.activeElement === input && input.value) {
       input.value = '';
