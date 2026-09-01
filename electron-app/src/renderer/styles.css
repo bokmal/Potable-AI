@@ -16,7 +16,11 @@
   --text: #eaf6f8;
   --text-muted: #5c6c80;
   --text-faint: #3d4c5e;
-  --dot-color: rgba(255, 255, 255, 0.05);
+  /* V1에서 0.05로 뒀더니 실기기에서 사실상 안 보인다는 피드백을 받고
+     V2에서 큰 폭으로 올렸다 — "은은한 정도"가 아니라 실제로 눈에 띄는
+     수준이어야 한다. */
+  --dot-color: rgba(255, 255, 255, 0.14);
+  --ring-inner-color: rgba(234, 246, 248, 0.75);
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -51,7 +55,10 @@ html[data-theme='light'] {
   --text: #16232e;
   --text-muted: #6b7c8c;
   --text-faint: #a3b2bf;
-  --dot-color: rgba(20, 40, 60, 0.05);
+  --dot-color: rgba(20, 40, 60, 0.1);
+  /* 라이트 테마는 배경이 밝아서 링 안쪽 링을 밝은 고정색으로 두면(V1의
+     버그) 거의 안 보인다 — 테마별로 어두운 색을 따로 준다. */
+  --ring-inner-color: rgba(23, 60, 75, 0.55);
   --shadow-float: 0 16px 40px rgba(20, 40, 60, 0.14), 0 0 0 1px rgba(23, 152, 168, 0.06);
   --shadow-card: 0 2px 10px rgba(20, 40, 60, 0.06);
 }
@@ -112,8 +119,12 @@ body {
 .sidebar {
   width: 280px;
   flex-shrink: 0;
-  background: var(--card-bg);
+  /* V1은 배경이 --card-bg 단색이라 .app 배경과 톤 차이가 크게 안 느껴졌다
+     — 패널이라는 느낌이 들도록 그라디언트로 바꾸고, 시안 언더라인을 하나
+     그어 "제어 패널" 같은 인상을 준다. */
+  background: linear-gradient(180deg, var(--card-bg) 0%, var(--card-bg-soft) 100%);
   border-right: 1px solid var(--card-border);
+  box-shadow: inset -1px 0 0 rgba(79, 209, 224, 0.08);
   padding: var(--sp-5) var(--sp-4);
   display: flex;
   flex-direction: column;
@@ -134,9 +145,9 @@ body {
 }
 .brand-name {
   font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   flex: 1;
 }
 
@@ -272,8 +283,8 @@ body {
 }
 .tree-group-badge {
   background: var(--bg-deep);
-  border: 1px solid var(--card-border);
-  color: var(--text-muted);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
   border-radius: 9px;
   padding: 1px 7px;
   font-family: var(--font-mono);
@@ -481,30 +492,33 @@ body {
 .hud-corner.bl { bottom: -6px; left: -40px; border-right: none; border-top: none; }
 .hud-corner.br { bottom: -6px; right: -40px; border-left: none; border-top: none; }
 
-/* JARVIS 링 — 사진 레퍼런스처럼 동심원 2겹(바깥 시안 글로우 링 + 안쪽 얇은
-   화이트 링)으로 레이어감을 준다. 글로우는 이 링과 상태 표시줄 정도에만
-   남겨서, 오히려 여기가 "지금 이 앱의 심장부"라는 걸 부각시킨다. */
+/* JARVIS 링 — 사진 레퍼런스처럼 동심원 2겹(바깥 시안 글로우 링 + 안쪽
+   또렷한 링)으로 레이어감을 준다. V1에서 크기/두께/불투명도를 너무 낮게
+   잡아서 실기기에서 거의 안 보인다는 피드백을 받고 전체적으로 키웠다. */
 .jarvis-ring {
-  width: 120px;
-  height: 120px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
-  border: 1.5px solid var(--idle);
+  border: 2px solid var(--idle);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   box-shadow:
-    0 0 10px rgba(79, 209, 224, 0.45),
-    0 0 32px rgba(79, 209, 224, 0.15);
+    0 0 16px rgba(79, 209, 224, 0.6),
+    0 0 46px rgba(79, 209, 224, 0.25),
+    inset 0 0 20px rgba(79, 209, 224, 0.12);
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* 안쪽 동심원 — 얇고 은은한 화이트 링 */
+/* 안쪽 동심원 — V1은 1px/투명도 0.35라 사실상 안 보였다. 두께/불투명도를
+   크게 올리고, 테마별로 색이 갈리는 --ring-inner-color를 쓴다(V1은 밝은
+   고정색이라 라이트 테마에서 흰 배경 위 흰 선이 되는 버그가 있었다). */
 .ring-inner {
   position: absolute;
-  inset: 9px;
+  inset: 12px;
   border-radius: 50%;
-  border: 1px solid rgba(234, 246, 248, 0.35);
+  border: 2px solid var(--ring-inner-color);
   transition: border-color 0.25s ease;
 }
 
@@ -517,23 +531,23 @@ body {
   animation: orbit-spin 12s linear infinite;
 }
 .jarvis-ring.listening .ring-orbit {
-  border-color: rgba(242, 195, 77, 0.35);
+  border-color: rgba(242, 195, 77, 0.5);
   animation-duration: 4s;
 }
 .jarvis-ring.listening .ring-inner {
-  border-color: rgba(242, 195, 77, 0.4);
+  border-color: rgba(242, 195, 77, 0.75);
 }
 .jarvis-ring.response .ring-orbit {
-  border-color: rgba(111, 214, 138, 0.35);
+  border-color: rgba(111, 214, 138, 0.5);
 }
 .jarvis-ring.response .ring-inner {
-  border-color: rgba(111, 214, 138, 0.4);
+  border-color: rgba(111, 214, 138, 0.75);
 }
 .jarvis-ring.error .ring-orbit {
-  border-color: rgba(224, 92, 92, 0.35);
+  border-color: rgba(224, 92, 92, 0.5);
 }
 .jarvis-ring.error .ring-inner {
-  border-color: rgba(224, 92, 92, 0.4);
+  border-color: rgba(224, 92, 92, 0.75);
 }
 
 @keyframes orbit-spin {
@@ -580,8 +594,8 @@ body {
 .jarvis-ring.listening {
   border-color: var(--listening);
   box-shadow:
-    0 0 10px rgba(242, 195, 77, 0.45),
-    0 0 32px rgba(242, 195, 77, 0.18);
+    0 0 16px rgba(242, 195, 77, 0.6),
+    0 0 46px rgba(242, 195, 77, 0.25);
   animation: pulse 1.6s ease-in-out infinite;
 }
 .jarvis-ring.listening .ring-core {
@@ -594,8 +608,8 @@ body {
 .jarvis-ring.response {
   border-color: var(--success);
   box-shadow:
-    0 0 10px rgba(111, 214, 138, 0.45),
-    0 0 32px rgba(111, 214, 138, 0.18);
+    0 0 16px rgba(111, 214, 138, 0.6),
+    0 0 46px rgba(111, 214, 138, 0.25);
 }
 .jarvis-ring.response .ring-core {
   background: radial-gradient(circle, rgba(111, 214, 138, 0.4), transparent 70%);
@@ -604,8 +618,8 @@ body {
 .jarvis-ring.error {
   border-color: var(--error);
   box-shadow:
-    0 0 10px rgba(224, 92, 92, 0.45),
-    0 0 32px rgba(224, 92, 92, 0.18);
+    0 0 16px rgba(224, 92, 92, 0.6),
+    0 0 46px rgba(224, 92, 92, 0.25);
 }
 .jarvis-ring.error .ring-core {
   background: radial-gradient(circle, rgba(224, 92, 92, 0.4), transparent 70%);
@@ -751,7 +765,11 @@ body {
 .bubble.assistant {
   align-self: flex-start;
   max-width: 100%;
-  padding: 2px 2px 2px 0;
+  /* V1은 테두리/배경을 완전히 없애서 "스타일이 아예 안 먹은 것"처럼 보일
+     위험이 있었다 — 왼쪽에 얇은 포인트 컬러 바 하나는 남겨서, 배경 없는
+     것도 의도된 디자인이라는 걸 분명히 한다. */
+  padding: 2px 2px 2px 14px;
+  border-left: 2px solid var(--success);
 }
 .bubble.error {
   align-self: flex-start;
