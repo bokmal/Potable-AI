@@ -94,6 +94,10 @@ JSON으로 저장된다 (`electron-app/src/main/store.js`). 자세한 내용은
 
 ## 알려진 제약 / 검증 필요 항목
 
+- [x] **(실제 Windows PC에서 종단간 검증 완료)** USB → `start.bat` → CAELUS
+      (Electron) → `claude --print` 자식 프로세스 → 응답 수신 → 화면 렌더링 →
+      작업 기록 저장까지, 실제 하드웨어에서 전체 플로우가 동작하는 것을 확인함.
+      로그인 세션도 `claude-home\.claude`에 저장되어 USB에 귀속된다.
 - [x] **(실제 확인됨, 수정함)** `start.bat`이 세션 전체의 `HOME`/`USERPROFILE`을
       재설정하던 초기 구현은 Electron(Chromium)이 내부 프로필 경로 계산 중
       조용히 비정상 종료(창이 아예 안 뜨고 즉시 종료)하는 문제가 있었다.
