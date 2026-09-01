@@ -31,13 +31,19 @@ class ClaudeBridge {
   }
 
   /**
-   * @param {string} prompt 사용자 입력
-   * @param {'chat' | 'code'} [mode] 'chat'(기본값)이면 대화체로 답하도록 시스템
-   *   프롬프트를 얹는다. 'code'면 CLI 기본 동작(신중한 코딩 에이전트) 그대로.
-   * @param {(chunk: string) => void} [onChunk] stdout 스트리밍 콜백
+   * @param {object} opts
+   * @param {string} opts.prompt 사용자 입력
+   * @param {'chat' | 'code'} [opts.mode] 'chat'(기본값)이면 대화체로 답하도록
+   *   시스템 프롬프트를 얹는다. 'code'면 CLI 기본 동작(신중한 코딩 에이전트) 그대로.
+   * @param {string} [opts.cwd] CLI를 실행할 작업 디렉터리(프로젝트 전환용).
+   *   생략하면 이 프로세스(Electron 메인)의 cwd를 그대로 쓴다.
+   * @param {(chunk: string) => void} [opts.onChunk] stdout 스트리밍 콜백
+   * @param {(child: import('child_process').ChildProcess) => void} [opts.onSpawn]
+   *   spawn 직후 자식 프로세스를 넘겨준다 — 호출자가 취소(child.kill())할 수
+   *   있도록 참조를 잡아두는 용도.
    * @returns {Promise<string>} 전체 응답 텍스트
    */
-  send(prompt, mode, onChunk) {
+  send({ prompt, mode, cwd, onChunk, onSpawn } = {}) {
     return new Promise((resolve, reject) => {
       // 사용자 프롬프트는 명령줄 인자가 아니라 stdin으로 전달한다(아래에서
       // child.stdin에 씀). Windows에서 이 프로세스는 shell:true로 cmd.exe를
@@ -77,7 +83,10 @@ class ClaudeBridge {
       const child = spawn(this.command, args, {
         shell: process.platform === 'win32',
         env,
+        cwd: cwd || undefined,
       });
+
+      if (onSpawn) onSpawn(child);
 
       // 프롬프트를 stdin으로 쓰고 바로 닫는다(EOF). 위 주석 참고 — 명령줄
       // 인자 대신 stdin을 쓰는 이유는 셸 특수문자로 인한 명령줄 손상을
@@ -86,6 +95,7 @@ class ClaudeBridge {
 
       let stdout = '';
       let stderr = '';
+      let cancelled = false;
 
       child.stdout.on('data', (data) => {
         const text = data.toString();
@@ -101,8 +111,16 @@ class ClaudeBridge {
         reject(new Error(`Claude Code CLI 실행 실패 (PATH 확인 필요): ${err.message}`));
       });
 
+      // 취소(cancel) 표시 — main.js가 child.kill()을 호출하기 전에 이 플래그를
+      // 세팅해두면, 'close' 핸들러가 종료 코드 대신 취소로 처리한다.
+      child.once('caelus:cancelled', () => {
+        cancelled = true;
+      });
+
       child.on('close', (code) => {
-        if (code === 0) {
+        if (cancelled) {
+          reject(new Error('사용자가 요청을 취소했습니다.'));
+        } else if (code === 0) {
           resolve(stdout.trim());
         } else {
           const detail = stderr.trim() || stdout.trim() || '(출력 없음)';

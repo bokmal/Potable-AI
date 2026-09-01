@@ -11,6 +11,20 @@
   --text-muted: #5c6c80;
 }
 
+/* --- 라이트 테마 (JS가 <html data-theme="light">를 토글) --- */
+html[data-theme='light'] {
+  --bg: #f4f7fa;
+  --card-bg: #ffffff;
+  --card-border: #d8e1e8;
+  --idle: #1798a8;
+  --idle-soft: #2ab0c2;
+  --listening: #c98a12;
+  --success: #2f9e5b;
+  --error: #c53d3d;
+  --text: #16232e;
+  --text-muted: #6b7c8c;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -31,7 +45,7 @@ body {
 
 /* --- 좌측 사이드바: 작업 기록 --- */
 .sidebar {
-  width: 260px;
+  width: 280px;
   flex-shrink: 0;
   background: var(--card-bg);
   border-right: 1px solid var(--card-border);
@@ -44,7 +58,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 .brand-mark {
   color: var(--idle);
@@ -55,14 +69,83 @@ body {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.08em;
+  flex: 1;
 }
 
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.icon-btn:hover {
+  border-color: var(--idle);
+  color: var(--text);
+}
+.icon-btn.small {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+/* --- 사용량 위젯 --- */
+.usage-widget {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  font-size: 12px;
+}
+.usage-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text);
+  padding: 2px 0;
+}
+.usage-row span:first-child {
+  color: var(--text-muted);
+}
+.usage-note {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.sidebar-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
 .sidebar-label {
   color: var(--text-muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+.history-search {
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
   margin-bottom: 10px;
+}
+.history-search:focus {
+  border-color: var(--idle);
 }
 
 .history-list {
@@ -80,22 +163,71 @@ body {
   padding: 10px 12px;
   margin-bottom: 8px;
   font-size: 13px;
-  cursor: default;
+  cursor: pointer;
+  position: relative;
   transition: border-color 0.15s ease;
 }
 .history-item:hover {
   border-color: var(--idle);
+}
+.history-item.active {
+  border-color: var(--idle);
+  box-shadow: 0 0 8px rgba(79, 209, 224, 0.25);
 }
 .history-item .h-title {
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-right: 20px;
 }
 .history-item .h-meta {
   color: var(--text-muted);
   font-size: 11px;
   margin-top: 4px;
+}
+.history-item .h-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.history-item:hover .h-delete {
+  opacity: 1;
+}
+.history-item .h-delete:hover {
+  color: var(--error);
+}
+
+.update-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.text-btn {
+  background: transparent;
+  border: none;
+  color: var(--idle);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+.text-btn:hover {
+  text-decoration: underline;
+}
+.update-status {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* --- 중앙: 상태 인디케이터 + 대화 영역 --- */
@@ -113,7 +245,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding: 24px 0 8px;
+  padding: 16px 0 8px;
 }
 
 .jarvis-ring {
@@ -124,6 +256,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   box-shadow:
     0 0 8px rgba(79, 209, 224, 0.6),
     0 0 24px rgba(79, 209, 224, 0.3),
@@ -139,6 +272,34 @@ body {
   transition: background 0.25s ease;
 }
 
+/* 입력 처리 중일 때만 보이는 작은 파형 바 (JARVIS 느낌) */
+.ring-bars {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 3px;
+  align-items: flex-end;
+  height: 14px;
+}
+.ring-bars span {
+  width: 3px;
+  background: var(--listening);
+  border-radius: 2px;
+  animation: bar-bounce 0.9s ease-in-out infinite;
+}
+.ring-bars span:nth-child(1) { height: 40%; animation-delay: 0s; }
+.ring-bars span:nth-child(2) { height: 70%; animation-delay: 0.1s; }
+.ring-bars span:nth-child(3) { height: 100%; animation-delay: 0.2s; }
+.ring-bars span:nth-child(4) { height: 60%; animation-delay: 0.3s; }
+.ring-bars span:nth-child(5) { height: 35%; animation-delay: 0.4s; }
+
+@keyframes bar-bounce {
+  0%, 100% { transform: scaleY(0.4); opacity: 0.6; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
 .jarvis-ring.listening {
   border-color: var(--listening);
   box-shadow:
@@ -148,6 +309,9 @@ body {
 }
 .jarvis-ring.listening .ring-core {
   background: radial-gradient(circle, rgba(242, 195, 77, 0.5), transparent 70%);
+}
+.jarvis-ring.listening .ring-bars {
+  display: flex;
 }
 
 .jarvis-ring.response {
@@ -189,6 +353,28 @@ body {
   text-transform: uppercase;
 }
 
+/* --- 프로젝트(작업 폴더) 선택 --- */
+.project-row {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.project-label {
+  color: var(--text-muted);
+}
+.project-select {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .conversation {
   width: 100%;
   max-width: 760px;
@@ -209,6 +395,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   white-space: pre-wrap;
+  position: relative;
 }
 .bubble.user {
   align-self: flex-end;
@@ -222,6 +409,69 @@ body {
   align-self: flex-start;
   border-color: var(--error);
   color: #ffb3b3;
+}
+
+.bubble code {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.92em;
+}
+.bubble pre {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.bubble pre code {
+  background: none;
+  padding: 0;
+}
+
+.bubble-copy {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.bubble:hover .bubble-copy {
+  opacity: 1;
+}
+.bubble-copy:hover {
+  color: var(--idle);
+}
+
+/* --- 자주 쓰는 명령 (프리셋) --- */
+.preset-row {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.preset-btn {
+  background: transparent;
+  border: 1px dashed var(--card-border);
+  color: var(--text-muted);
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.preset-btn:hover {
+  border-color: var(--idle);
+  color: var(--text);
 }
 
 /* --- 응답 모드 전환 (대화 / 코딩) --- */
@@ -282,6 +532,9 @@ body {
   border-color: var(--idle);
   box-shadow: 0 0 8px rgba(79, 209, 224, 0.35);
 }
+.command-input:disabled {
+  opacity: 0.6;
+}
 
 .command-submit {
   background: transparent;
@@ -296,4 +549,25 @@ body {
 .command-submit:hover {
   box-shadow: 0 0 12px rgba(79, 209, 224, 0.5);
   background: rgba(79, 209, 224, 0.08);
+}
+.command-submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+  background: none;
+}
+
+.cancel-btn {
+  background: transparent;
+  border: 1px solid var(--error);
+  color: var(--error);
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.cancel-btn:hover {
+  box-shadow: 0 0 12px rgba(224, 92, 92, 0.5);
+  background: rgba(224, 92, 92, 0.08);
 }

@@ -11,20 +11,55 @@
       <div class="brand">
         <span class="brand-mark">&#9678;</span>
         <span class="brand-name">CAELUS</span>
+        <button id="theme-toggle" class="icon-btn" type="button" title="테마 전환">&#9789;</button>
       </div>
-      <div class="sidebar-label">작업 기록</div>
+
+      <div class="usage-widget" id="usage-widget">
+        <div class="usage-row"><span>오늘</span><span id="usage-today">-</span></div>
+        <div class="usage-row"><span>세션(5h)</span><span id="usage-session">-</span></div>
+        <div class="usage-row"><span>이번 주</span><span id="usage-weekly">-</span></div>
+        <div class="usage-note">* CLI 공식 한도 조회가 아닌 로컬 기록 기반 추정치</div>
+      </div>
+
+      <div class="sidebar-label-row">
+        <span class="sidebar-label">작업 기록</span>
+        <button id="clear-history-btn" class="icon-btn small" type="button" title="전체 삭제">&#128465;</button>
+      </div>
+      <input id="history-search" class="history-search" type="text" placeholder="기록 검색..." autocomplete="off" />
       <ul id="history-list" class="history-list"></ul>
+
+      <div class="update-row">
+        <button id="check-update-btn" class="text-btn" type="button">업데이트 확인</button>
+        <span id="update-status" class="update-status"></span>
+      </div>
     </aside>
 
     <main class="main">
       <div class="stage">
         <div id="ring" class="jarvis-ring idle">
           <div class="ring-core"></div>
+          <div class="ring-bars">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
         </div>
         <div id="status-text" class="status-text">대기 중</div>
       </div>
 
+      <div class="project-row">
+        <label for="project-select" class="project-label">작업 폴더</label>
+        <select id="project-select" class="project-select">
+          <option value="">(projects\ 루트)</option>
+        </select>
+        <button id="export-btn" class="text-btn" type="button" style="margin-left: auto;">내보내기</button>
+      </div>
+
       <div id="conversation" class="conversation"></div>
+
+      <div id="preset-row" class="preset-row">
+        <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 요약</button>
+        <button type="button" class="preset-btn" data-text="지금까지 변경된 파일이 있는지 git 상태를 확인해줘">git 상태 확인</button>
+        <button type="button" class="preset-btn" data-text="이 프로젝트의 테스트를 실행해줘">테스트 실행</button>
+      </div>
 
       <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
         <button type="button" class="mode-btn active" data-mode="chat">
@@ -37,7 +72,8 @@
 
       <form id="command-form" class="command-bar">
         <input id="command-input" class="command-input" type="text"
-               placeholder="명령을 입력하세요..." autocomplete="off" />
+               placeholder="명령을 입력하세요... (Enter 전송, Esc 취소)" autocomplete="off" />
+        <button type="button" id="cancel-btn" class="cancel-btn" hidden>취소</button>
         <button type="submit" class="command-submit">전송</button>
       </form>
     </main>

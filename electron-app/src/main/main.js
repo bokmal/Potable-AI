@@ -1,5 +1,7 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { execFile } = require('child_process');
 const { ClaudeBridge } = require('./claudeBridge');
 const { Store } = require('./store');
 const { guardCredentials } = require('./credentialsGuard');
@@ -17,9 +19,19 @@ if (!gotSingleInstanceLock) {
   return;
 }
 
+// USB_ROOT: electron-app/src/main 에서 세 단계 위 = CAELUS 루트 폴더.
+const USB_ROOT = path.join(__dirname, '..', '..', '..');
+const PROJECTS_DIR = path.join(USB_ROOT, 'projects');
+const GIT_EXE = path.join(USB_ROOT, 'git', 'bin', 'git.exe');
+
 let mainWindow;
 const claude = new ClaudeBridge();
 const store = new Store();
+
+// 현재 진행 중인 요청 하나만 추적한다(동시에 여러 요청은 아직 지원하지
+// 않음 — UI도 입력창을 잠가 한 번에 하나씩만 보내도록 되어 있다).
+let activeChild = null;
+let activeTaskId = null;
 
 // Claude Code CLI 로그인 세션이 USB가 뽑히는 도중 손상됐을 수 있으니, 매
 // 실행마다 확인/백업한다 (자세한 설명은 credentialsGuard.js 참고).
@@ -72,16 +84,124 @@ ipcMain.handle('caelus:get-history', () => {
   return store.getTasks();
 });
 
+ipcMain.handle('caelus:get-task', (event, taskId) => {
+  return store.getTask(taskId);
+});
+
+ipcMain.handle('caelus:delete-task', (event, taskId) => {
+  store.deleteTask(taskId);
+  return true;
+});
+
+ipcMain.handle('caelus:clear-history', () => {
+  store.clearAll();
+  return true;
+});
+
+ipcMain.handle('caelus:get-usage', () => {
+  return store.getUsageStats();
+});
+
+// --- IPC: projects\ 하위 폴더 목록 (프로젝트 전환용) ---
+ipcMain.handle('caelus:list-projects', () => {
+  try {
+    if (!fs.existsSync(PROJECTS_DIR)) return [];
+    return fs
+      .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort((a, b) => a.localeCompare(b, 'ko'));
+  } catch (err) {
+    console.error(`[CAELUS] projects 목록 조회 실패: ${err.message}`);
+    return [];
+  }
+});
+
+// --- IPC: 클립보드 복사 ---
+ipcMain.handle('caelus:copy-text', (event, text) => {
+  clipboard.writeText(String(text ?? ''));
+  return true;
+});
+
+// --- IPC: 대화 내보내기 (저장 대화상자 + 파일 쓰기) ---
+ipcMain.handle('caelus:export-conversation', async (event, { content, suggestedName }) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'CAELUS 대화 내보내기',
+    defaultPath: suggestedName || 'caelus-conversation.md',
+    filters: [
+      { name: 'Markdown', extensions: ['md'] },
+      { name: '텍스트', extensions: ['txt'] },
+      { name: '모든 파일', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || !result.filePath) return { saved: false };
+  fs.writeFileSync(result.filePath, content, 'utf8');
+  return { saved: true, filePath: result.filePath };
+});
+
+// --- IPC: 이 저장소(USB)에 새 커밋이 있는지 확인 (자동으로 pull 하지는 않음) ---
+ipcMain.handle('caelus:check-update', () => {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(GIT_EXE)) {
+      resolve({ checked: false, reason: 'git 없음' });
+      return;
+    }
+    const opts = { cwd: USB_ROOT, timeout: 15000 };
+    execFile(GIT_EXE, ['fetch', '--quiet'], opts, (fetchErr) => {
+      if (fetchErr) {
+        // 오프라인이거나 프록시 차단 등 — 조용히 실패 처리(사용자를 방해하지 않음)
+        resolve({ checked: false, reason: fetchErr.message });
+        return;
+      }
+      execFile(
+        GIT_EXE,
+        ['rev-list', '--count', 'HEAD..@{u}'],
+        opts,
+        (countErr, stdout) => {
+          if (countErr) {
+            resolve({ checked: false, reason: countErr.message });
+            return;
+          }
+          const behind = parseInt(String(stdout).trim(), 10) || 0;
+          resolve({ checked: true, updateAvailable: behind > 0, commitsBehind: behind });
+        }
+      );
+    });
+  });
+});
+
+// --- IPC: 진행 중인 요청 취소 ---
+ipcMain.handle('caelus:cancel-command', (event, taskId) => {
+  if (activeChild && activeTaskId === taskId) {
+    activeChild.emit('caelus:cancelled');
+    activeChild.kill();
+    return true;
+  }
+  return false;
+});
+
 // --- IPC: 명령 전송 → Claude Code CLI 호출 ---
 // UI 상태 전이: listening(입력 처리 중) → response(완료) / error(오류)
 // mode: 'chat'(기본, 대화체) | 'code'(CLI 기본 동작 — 신중한 코딩 에이전트)
-ipcMain.handle('caelus:send-command', async (event, text, mode) => {
+// projectName: projects\<projectName> 을 작업 디렉터리로 사용(선택)
+ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => {
   const task = store.createTask(text, mode);
+  activeTaskId = task.task_id;
   send(event, 'caelus:status', { state: 'listening', taskId: task.task_id });
 
+  const cwd = projectName ? path.join(PROJECTS_DIR, projectName) : undefined;
+
   try {
-    const responseText = await claude.send(text, mode, (chunk) => {
-      send(event, 'caelus:stream', { taskId: task.task_id, chunk });
+    const responseText = await claude.send({
+      prompt: text,
+      mode,
+      cwd,
+      onChunk: (chunk) => {
+        send(event, 'caelus:stream', { taskId: task.task_id, chunk });
+      },
+      onSpawn: (child) => {
+        activeChild = child;
+      },
     });
 
     store.appendLog(task.task_id, responseText);
@@ -94,5 +214,8 @@ ipcMain.handle('caelus:send-command', async (event, text, mode) => {
     store.appendLog(task.task_id, `[오류] ${err.message}`);
     send(event, 'caelus:status', { state: 'error', taskId: task.task_id, message: err.message });
     throw err;
+  } finally {
+    activeChild = null;
+    activeTaskId = null;
   }
 });
