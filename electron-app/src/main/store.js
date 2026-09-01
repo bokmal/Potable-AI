@@ -204,6 +204,13 @@ class Store {
   clearAll() {
     this.data.tasks = [];
     this.data.logs = [];
+    // activeThreads(프로젝트별 활성 Claude 세션 포인터)도 같이 지워야 한다.
+    // 여기서 안 지우면, 화면상 기록은 싹 없어졌는데 다음 메시지가 여전히
+    // 예전 세션을 --resume 해서 "지웠는데도 기억한다"는 문제가 생긴다
+    // (실사용 중 확인된 버그 — CLI 쪽 실제 세션 기억 자체를 지울 방법은
+    // 없지만, 포인터를 지우면 다음 메시지부터 --session-id로 완전히 새
+    // 세션을 시작하므로 사용자 입장에선 기억이 사라진 것과 동일하다).
+    this.data.activeThreads = {};
     this._save();
   }
 

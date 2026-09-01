@@ -448,12 +448,21 @@ function makeThreadItem(project, threadEntry) {
     for (const t of threadEntry.tasks) {
       await window.caelus.deleteTask(t.task_id);
     }
+    // 지운 스레드가 그 프로젝트의 "지금 활성 스레드"였다면 포인터도 같이
+    // 지운다 — 안 그러면 기록은 사라졌는데 다음 메시지가 여전히 그 스레드를
+    // --resume 해서 "지웠는데도 기억한다"는 문제가 생긴다(clearAll의
+    // activeThreads 초기화 누락과 같은 종류의 버그).
+    const info = await window.caelus.getThreadInfo(project);
+    if (threadEntry.threadId && info.threadId === threadEntry.threadId) {
+      await window.caelus.startNewThread(project);
+    }
     if (viewingThread && viewingThread.project === project && viewingThread.threadId === threadEntry.threadId) {
       clearConversation();
       viewingThread = null;
       hideResumeBanner();
     }
     loadHistory();
+    refreshThreadStatus();
   });
   return li;
 }
