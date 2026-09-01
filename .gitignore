@@ -21,3 +21,6 @@ electron-app/out/
 *.log
 Thumbs.db
 desktop.ini
+
+# --- Claude Code 로컬 권한 설정 (개인/세션 전용) ---
+.claude/settings.local.json
