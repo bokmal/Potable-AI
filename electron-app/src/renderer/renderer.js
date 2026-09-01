@@ -341,6 +341,11 @@ function makeGroupHeader(project, threadCount) {
   if (renameBtn) {
     renameBtn.addEventListener('click', (event) => {
       event.stopPropagation();
+      // 메시지 전송 중에는 손대지 않는다 — 진행 중인 요청이 main.js에서
+      // 끝난 뒤 store.setActiveThread(targetProject, ...)로 activeThreads를
+      // 다시 덮어쓰므로, 그 사이에 이름을 바꾸면(project 키가 옮겨짐) 요청이
+      // 끝나는 순간 옛 이름으로 포인터가 되살아나는 경쟁 상태가 생긴다.
+      if (isBusy) return;
       startProjectRename(header, project);
     });
   }
@@ -349,6 +354,8 @@ function makeGroupHeader(project, threadCount) {
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async (event) => {
       event.stopPropagation();
+      // 위 renameBtn과 같은 이유로, 진행 중인 요청이 있으면 삭제도 막는다.
+      if (isBusy) return;
       const ok = confirm(
         `'${project}' 프로젝트를 삭제할까요?\n\n이 폴더 안 모든 파일이 영구 삭제됩니다. 되돌릴 수 없습니다.\n(지금까지 나눈 대화 기록은 "일반" 그룹으로 남습니다.)`
       );
@@ -442,6 +449,11 @@ function makeThreadItem(project, threadEntry) {
   });
   li.querySelector('.h-delete').addEventListener('click', async (event) => {
     event.stopPropagation();
+    // 메시지 전송 중에는 막는다 — 그 요청이 끝나면서 store.setActiveThread로
+    // activeThreads를 다시 덮어쓰기 때문에, 그 사이 여기서 지운 활성 스레드
+    // 포인터가 요청이 끝나는 순간 되살아나는 경쟁 상태가 생길 수 있다
+    // (main.js caelus:send-command 참고).
+    if (isBusy) return;
     if (!confirm('이 기록을 삭제할까요?')) return;
     // 스레드를 이루는 모든 task를 같이 지운다 — 하나만 지우면 나머지가
     // "제목 없는" 조각으로 남아 혼란스럽다.
@@ -651,6 +663,7 @@ resumeThreadBtn.addEventListener('click', async () => {
     hideResumeBanner();
     return;
   }
+  const previousProject = activeProject;
   try {
     activeProject = viewingThread.project;
     await window.caelus.resumeThread(viewingThread.project, viewingThread.threadId);
@@ -658,6 +671,12 @@ resumeThreadBtn.addEventListener('click', async () => {
     await refreshThreadStatus();
     input.focus();
   } catch (err) {
+    // 실패하면 낙관적으로 바꿔둔 activeProject를 되돌린다 — 안 그러면
+    // 사용자가 이 알림을 무시하고 바로 메시지를 보낼 때, 이어가려던 그
+    // 스레드가 아니라 그 프로젝트의 "지금" 활성 스레드(의도한 것과 다를
+    // 수 있음)로 조용히 전송돼버린다. 배너는 그대로 띄워둔다 — 아직 이
+    // 스레드가 활성화된 게 아니라는 뜻이 여전히 맞기 때문이다.
+    activeProject = previousProject;
     // IPC 호출이 실패해도 조용히 묻히지 않도록 명시적으로 알려준다.
     alert(`이어서 대화하기에 실패했습니다: ${err && err.message ? err.message : err}`);
   }
