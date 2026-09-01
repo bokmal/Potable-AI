@@ -30,7 +30,15 @@ if not exist "%CAELUS_HOME%" mkdir "%CAELUS_HOME%"
 if not exist "%CAELUS_HOME%\data" mkdir "%CAELUS_HOME%\data"
 
 REM --- PATH 임시 확장 (세션 한정, 시스템 PATH 미변경) ---
-set "PATH=%USB_ROOT%\node;%USB_ROOT%\git\bin;%USB_ROOT%\git\cmd;%PATH%"
+REM  node 만 여기서 PATH에 추가한다(electron.cmd 실행 부트스트랩에 필요).
+REM  git\bin, git\cmd 는 추가하지 않는다 — Electron(Chromium) 프로세스의
+REM  PATH 맨 앞에 PortableGit의 bin 폴더가 끼면, 그 안의 DLL(openssl/zlib
+REM  등, Chromium이 쓰는 것과 이름이 같은)과 충돌해 강제종료(액세스 위반,
+REM  종료 코드 -1073741819 / 0xC0000005)되는 문제가 실사용 중 확인되었다.
+REM  git은 CAELUS_GIT_BIN 변수로만 전달하고, Claude Code CLI 자식 프로세스
+REM  에서만(claudeBridge.js) 그 PATH를 추가한다.
+set "PATH=%USB_ROOT%\node;%PATH%"
+set "CAELUS_GIT_BIN=%USB_ROOT%\git\bin;%USB_ROOT%\git\cmd"
 
 REM --- 이 세션에서 사용할 볼륨 시리얼 (UI 표시/데이터 모델용, 선택 정보) ---
 for /f "tokens=2 delims==" %%S in ('wmic logicaldisk where "DeviceID='%USB_ROOT:~0,2%'" get VolumeSerialNumber /value ^| findstr "="') do set "CAELUS_VOLUME_SERIAL=%%S"

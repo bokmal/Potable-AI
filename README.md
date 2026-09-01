@@ -100,6 +100,13 @@ JSON으로 저장된다 (`electron-app/src/main/store.js`). 자세한 내용은
       Electron 프로세스 자체는 건드리지 않고, Claude Code CLI 자식 프로세스
       에만 `CAELUS_HOME`을 `HOME`/`USERPROFILE`로 주입하도록 구조를 바꿔
       해결했다 (`start.bat`, `claudeBridge.js`, `store.js` 참고).
+- [x] **(실제 확인됨, 수정함)** 같은 이유로 `git\bin`/`git\cmd`를 세션 PATH에
+      통째로 추가하던 것도 Electron이 종료 코드 -1073741819(0xC0000005,
+      액세스 위반)로 강제종료되는 문제가 있었다 — PortableGit의 DLL들이
+      Chromium이 쓰는 것과 이름이 겹쳐 충돌한 것으로 추정된다. `CAELUS_HOME`과
+      동일한 패턴으로, Electron 프로세스 PATH에는 넣지 않고 `CAELUS_GIT_BIN`
+      변수로 전달해 Claude Code CLI 자식 프로세스의 PATH에만 추가하도록
+      바꿔 해결했다.
 - [ ] 회사/공용 PC 그룹정책으로 작업 스케줄러 등록이 차단되는 경우의
       수동 실행 폴백은 구현되어 있으나, 실제 그런 환경에서의 검증 필요.
 - [ ] 안티바이러스가 포터블 `node.exe`를 오탐할 수 있음 → 화이트리스트 등록 안내 필요.

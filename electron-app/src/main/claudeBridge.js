@@ -32,6 +32,12 @@ class ClaudeBridge {
         env.HOME = process.env.CAELUS_HOME;
         env.USERPROFILE = process.env.CAELUS_HOME;
       }
+      // PortableGit도 같은 이유로 Electron 프로세스 자체의 PATH에는 넣지 않고
+      // (start.bat 참고), 이 CLI 자식 프로세스의 PATH에만 추가한다. CLI가 파일에
+      // git 명령을 실행할 때 필요하다.
+      if (process.env.CAELUS_GIT_BIN) {
+        env.PATH = `${process.env.CAELUS_GIT_BIN};${env.PATH || ''}`;
+      }
 
       const child = spawn(this.command, args, {
         shell: process.platform === 'win32',

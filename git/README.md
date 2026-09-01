@@ -22,6 +22,9 @@ git\
 └── ...
 ```
 
-`start.bat`이 `git\bin`, `git\cmd`를 세션 PATH에 추가한다.
+`start.bat`은 Electron 앱 자체의 PATH에는 이 폴더를 넣지 않는다(Chromium과
+DLL 충돌로 강제종료되는 문제가 있었다 — `start.bat`, `claudeBridge.js` 주석
+참고). 대신 `CAELUS_GIT_BIN` 변수로 전달하고, Claude Code CLI 자식 프로세스
+에서만 PATH에 추가된다.
 
 > 이 폴더의 실제 바이너리는 저장소에 커밋하지 않는다 (`.gitignore` 참고).
