@@ -136,26 +136,34 @@ foreach (`$disk in `$disks) {
 
     # 동일 USB 재설정 시나리오: 기존 바인딩/필터/컨슈머 정리 (참조가 있으면
     # 삭제가 실패하므로 바인딩부터 지운다)
-    Get-CimInstance -Namespace root/subscription -ClassName __FilterToConsumerBinding -ErrorAction SilentlyContinue |
+    Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding -ErrorAction SilentlyContinue |
         Where-Object { $_.Filter -match [regex]::Escape($filterName) -or $_.Consumer -match [regex]::Escape($consumerName) } |
-        Remove-CimInstance -ErrorAction SilentlyContinue
+        ForEach-Object { $_.Delete() }
 
-    Get-CimInstance -Namespace root/subscription -ClassName __EventFilter -Filter "Name='$filterName'" -ErrorAction SilentlyContinue |
-        Remove-CimInstance -ErrorAction SilentlyContinue
+    Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "Name='$filterName'" -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.Delete() }
 
-    Get-CimInstance -Namespace root/subscription -ClassName CommandLineEventConsumer -Filter "Name='$consumerName'" -ErrorAction SilentlyContinue |
-        Remove-CimInstance -ErrorAction SilentlyContinue
+    Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter "Name='$consumerName'" -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.Delete() }
 
-    $filter = New-CimInstance -Namespace root/subscription -ClassName __EventFilter -Property @{
+    # __FilterToConsumerBinding의 Filter/Consumer는 참조(REF) 타입 프로퍼티다.
+    # New-CimInstance로 이 셋을 만들면 바인딩 단계에서 "Consumer 속성과 형식이
+    # 일치하지 않습니다" 오류가 난다(REF 프로퍼티를 문자열/객체 어느 쪽으로
+    # 넘겨도 실패하는, 잘 알려진 New-CimInstance의 한계). 대신 예전부터 이런
+    # WMI 영구 구독을 만들 때 표준으로 쓰이는 Set-WmiInstance(레거시 WMI
+    # cmdlet, ManagementObject를 반환하며 참조 프로퍼티를 자동으로 올바르게
+    # 처리한다)를 쓴다. Windows PowerShell(5.1)에 기본 포함돼 있어 별도
+    # 설치가 필요 없다.
+    $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments @{
         Name           = $filterName
-        EventNamespace = 'root/cimv2'
+        EventNamespace = 'root\cimv2'
         QueryLanguage  = 'WQL'
         # EventType 2 = 볼륨 도착(마운트). 장치 종류(USB 플래시/포터블 SSD/
         # 외장 HDD 등)와 무관하게 드라이브 문자가 배정되는 순간 항상 발생한다.
         Query          = 'SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 2'
     }
 
-    $consumer = New-CimInstance -Namespace root/subscription -ClassName CommandLineEventConsumer -Property @{
+    $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments @{
         Name                = $consumerName
         # "우리 USB인지"는 여기서 판단하지 않는다 — 위 예약 작업의 인라인
         # 스크립트가 볼륨 시리얼로 다시 확인하므로, 여기서는 그냥 깨우기만
@@ -163,16 +171,9 @@ foreach (`$disk in `$disks) {
         CommandLineTemplate = "schtasks.exe /run /tn `"$taskName`""
     }
 
-    # __FilterToConsumerBinding의 Filter/Consumer는 REF(참조) 타입이라,
-    # New-CimInstance에는 객체가 아니라 "클래스.Name=값" 형식의 WMI 경로
-    # 문자열로 넘겨야 한다(객체를 그대로 넘기면 "Consumer 속성과 형식이
-    # 일치하지 않습니다" 오류가 난다).
-    $filterPath = "__EventFilter.Name=`"$filterName`""
-    $consumerPath = "CommandLineEventConsumer.Name=`"$consumerName`""
-
-    New-CimInstance -Namespace root/subscription -ClassName __FilterToConsumerBinding -Property @{
-        Filter   = $filterPath
-        Consumer = $consumerPath
+    Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments @{
+        Filter   = $filter
+        Consumer = $consumer
     } | Out-Null
 
     Write-Host "[완료] WMI 구독 등록됨 ('$filterName' → '$consumerName')."
