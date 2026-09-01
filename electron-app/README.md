@@ -40,9 +40,16 @@ npm start
 - `claudeBridge.js`가 `claude --print "<입력>"`을 `child_process.spawn`으로 호출한다.
 - CLI 실행 파일 경로는 기본적으로 PATH의 `claude`를 사용하며,
   `CAELUS_CLAUDE_CMD` 환경변수로 재정의할 수 있다.
-- `start.bat`이 세션 한정으로 `HOME`/`USERPROFILE`을 `claude-home`으로,
-  `PATH`에 portable `node`/`git`을 추가해둔 상태에서 이 앱이 실행되므로
-  별도 설정 없이 CLI가 USB 내부 인증 세션을 사용한다.
+- `start.bat`이 `PATH`에 portable `node`/`git`을 추가하고 `CAELUS_HOME`
+  환경변수를 `claude-home`으로 설정해둔 상태에서 이 앱이 실행된다.
+  `claudeBridge.js`는 CLI를 spawn할 때 **그 자식 프로세스에만**
+  `HOME`/`USERPROFILE`을 `CAELUS_HOME`으로 덮어써서, CLI의 인증/세션
+  저장 위치를 USB로 고정한다.
+  - **주의**: Electron 프로세스 자체의 `HOME`/`USERPROFILE`은 절대 건드리지
+    않는다. 예전에는 `start.bat`이 세션 전체의 `HOME`/`USERPROFILE`을
+    재설정했는데, 그러면 Electron 내부 Chromium이 프로필 경로 계산 중
+    조용히 비정상 종료(창이 아예 안 뜸)하는 문제가 실사용 테스트에서
+    확인됐다. `store.js`도 같은 이유로 `CAELUS_HOME`을 최우선으로 읽는다.
 
 ## 상태 3종 (설계 문서 6장)
 

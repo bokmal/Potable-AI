@@ -61,9 +61,14 @@ USB의 `start.bat`을 더블클릭한다.
   안내한다.
 
 ### 로그인 세션 이동
-`start.bat`이 세션 한정으로 `HOME`/`USERPROFILE`을 `claude-home\`으로
-재설정한 뒤 CLI를 실행한다. 시스템 환경변수는 건드리지 않으므로 PC
-재부팅 시 흔적이 남지 않는다. PC A에서 최초 1회 로그인하면 세션이
+`start.bat`이 `CAELUS_HOME`을 `claude-home\`으로 설정해둔다. Electron
+앱은 이 값을 Claude Code CLI를 실행하는 **자식 프로세스에서만**
+`HOME`/`USERPROFILE`로 주입한다(`claudeBridge.js`) — Electron 프로세스
+자체의 `HOME`/`USERPROFILE`은 건드리지 않는다. (처음에는 세션 전체의
+`HOME`/`USERPROFILE`을 통째로 재설정했으나, 그렇게 하면 Electron 내부의
+Chromium이 프로필 경로 계산 중 조용히 비정상 종료하는 문제가 실사용
+테스트에서 확인되어 이렇게 바꿨다.) 시스템 환경변수는 건드리지 않으므로
+PC 재부팅 시 흔적이 남지 않는다. PC A에서 최초 1회 로그인하면 세션이
 USB에 저장되고, 이후 다른 PC에 꽂아도 재로그인 없이 이어서 작업할 수
 있다(세션 만료 시에는 재로그인 필요).
 
@@ -89,8 +94,12 @@ JSON으로 저장된다 (`electron-app/src/main/store.js`). 자세한 내용은
 
 ## 알려진 제약 / 검증 필요 항목
 
-- [ ] HOME 리다이렉트가 Claude Code CLI 인증 로직(하드웨어 지문 체크 등)과
-      충돌하지 않는지 실제 Windows 환경 테스트 필요.
+- [x] **(실제 확인됨, 수정함)** `start.bat`이 세션 전체의 `HOME`/`USERPROFILE`을
+      재설정하던 초기 구현은 Electron(Chromium)이 내부 프로필 경로 계산 중
+      조용히 비정상 종료(창이 아예 안 뜨고 즉시 종료)하는 문제가 있었다.
+      Electron 프로세스 자체는 건드리지 않고, Claude Code CLI 자식 프로세스
+      에만 `CAELUS_HOME`을 `HOME`/`USERPROFILE`로 주입하도록 구조를 바꿔
+      해결했다 (`start.bat`, `claudeBridge.js`, `store.js` 참고).
 - [ ] 회사/공용 PC 그룹정책으로 작업 스케줄러 등록이 차단되는 경우의
       수동 실행 폴백은 구현되어 있으나, 실제 그런 환경에서의 검증 필요.
 - [ ] 안티바이러스가 포터블 `node.exe`를 오탐할 수 있음 → 화이트리스트 등록 안내 필요.

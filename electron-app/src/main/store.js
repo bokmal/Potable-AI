@@ -13,7 +13,12 @@ const crypto = require('crypto');
  */
 class Store {
   constructor(options = {}) {
-    const home = options.homeDir || process.env.HOME || process.env.USERPROFILE || process.cwd();
+    const home =
+      options.homeDir ||
+      process.env.CAELUS_HOME ||
+      process.env.HOME ||
+      process.env.USERPROFILE ||
+      process.cwd();
     this.dataDir = path.join(home, 'data');
     this.filePath = path.join(this.dataDir, 'caelus-store.json');
     this._load();

@@ -22,9 +22,20 @@ class ClaudeBridge {
   send(prompt, onChunk) {
     return new Promise((resolve, reject) => {
       const args = ['--print', prompt];
+
+      // Claude Code CLI의 인증/세션 저장 위치를 USB 내부(claude-home)로 고정한다.
+      // Electron 프로세스 자체의 HOME/USERPROFILE은 건드리지 않는다 — 그걸 통째로
+      // 바꾸면 Chromium이 내부 프로필 경로 계산 중 비정상 종료하는 문제가 실사용
+      // 중 확인되었다. 이 CLI 자식 프로세스에만 적용해 그 문제를 피한다.
+      const env = { ...process.env };
+      if (process.env.CAELUS_HOME) {
+        env.HOME = process.env.CAELUS_HOME;
+        env.USERPROFILE = process.env.CAELUS_HOME;
+      }
+
       const child = spawn(this.command, args, {
         shell: process.platform === 'win32',
-        env: process.env,
+        env,
       });
 
       let stdout = '';
