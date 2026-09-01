@@ -67,28 +67,34 @@
         </div>
       </section>
 
-      <section class="conversation-shell" aria-label="대화">
-        <div id="thread-status" class="thread-status" hidden>
-          <span id="thread-status-label" class="thread-status-label">📁 일반 대화</span>
-        </div>
-        <div id="thread-warning" class="thread-warning" hidden>
-          대화가 길어졌습니다. 새 대화로 시작하면 속도와 정확도가 좋아질 수 있습니다.
-        </div>
-        <div id="resume-banner" class="resume-banner" hidden>
-          <span>이전 대화 기록을 보고 있습니다.</span>
-          <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화</button>
-        </div>
+      <!-- 대기 중엔 코어 아래에 그대로 쌓이지만(idle, 세로 1열), 대화가
+           시작되면 코어는 자리 그대로/크기 그대로 왼쪽에 남고 이 열이
+           오른쪽으로 옮겨가며 채팅창이 된다(active, 가로 2열) — CSS만으로
+           처리하며 styles.css의 body[data-ui-phase] 규칙 참고. -->
+      <div class="chat-column">
+        <section class="conversation-shell" aria-label="대화">
+          <div id="thread-status" class="thread-status" hidden>
+            <span id="thread-status-label" class="thread-status-label">📁 일반 대화</span>
+          </div>
+          <div id="thread-warning" class="thread-warning" hidden>
+            대화가 길어졌습니다. 새 대화로 시작하면 속도와 정확도가 좋아질 수 있습니다.
+          </div>
+          <div id="resume-banner" class="resume-banner" hidden>
+            <span>이전 대화 기록을 보고 있습니다.</span>
+            <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화</button>
+          </div>
 
-        <div id="conversation" class="conversation"></div>
-      </section>
+          <div id="conversation" class="conversation"></div>
+        </section>
 
-      <form id="command-form" class="command-bar command-card compact">
-        <label class="sr-only" for="command-input">명령 입력</label>
-        <input id="command-input" class="command-input" type="text"
-               placeholder="작업 내용을 입력하세요...  Enter 전송  /  Esc 취소" autocomplete="off" />
-        <button type="button" id="cancel-btn" class="cancel-btn" hidden>중지</button>
-        <button type="submit" class="command-submit">전송</button>
-      </form>
+        <form id="command-form" class="command-bar command-card compact">
+          <label class="sr-only" for="command-input">명령 입력</label>
+          <input id="command-input" class="command-input" type="text"
+                 placeholder="작업 내용을 입력하세요...  Enter 전송  /  Esc 취소" autocomplete="off" />
+          <button type="button" id="cancel-btn" class="cancel-btn" hidden>중지</button>
+          <button type="submit" class="command-submit">전송</button>
+        </form>
+      </div>
     </main>
 
     <!-- 아래는 전부 기본 숨김 — 메뉴에서 열기 전까지는 화면에 없다. -->

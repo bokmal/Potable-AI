@@ -149,7 +149,14 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .command-card.compact { border-radius: var(--radius-md); }
 
-.main { position: relative; z-index: 1; min-width: 0; width: 100%; max-width: 760px; display: grid; grid-template-rows: var(--idle-stage-row, 280px) minmax(0, 1fr) auto; gap: 12px; min-height: 0; }
+.main { position: relative; z-index: 1; min-width: 0; width: 100%; max-width: 760px; display: grid; grid-template-columns: 1fr; grid-template-rows: var(--idle-stage-row, 280px) minmax(0, 1fr); gap: 12px; min-height: 0; }
+/* 대화창+입력창을 한 덩어리로 묶는 열 — 대기 중엔 코어 아래 세로로 쌓이고
+   (grid-auto-flow 기본이 행 우선이라 1열일 땐 자연히 세로로 쌓인다),
+   대화가 시작되면(active) .main이 2열로 바뀌면서 이 열이 그 옆(오른쪽)
+   칸을 차지한다 — 실제 배치는 body[data-ui-phase] 규칙 참고. */
+.chat-column { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.chat-column > .conversation-shell { flex: 1 1 auto; min-height: 0; }
+.chat-column > #command-form { flex: 0 0 auto; }
 
 .brand-mark {
   width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto;
@@ -544,78 +551,43 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 /* =====================================================================
    IDLE ↔ ACTIVE 전환 — renderer.js가 대화 유무만 판단해서
-   body[data-ui-phase]를 얹어주면, 실제 "코어가 작아지며 옆으로 도킹되고
-   대화창이 그 자리를 넘겨받는" 애니메이션은 전부 여기서 처리한다.
-   비주얼(정확한 크기/여백/색)은 계속 다듬을 부분이라 값들을 변수로 최대한
-   빼뒀다 — 숫자만 바꿔도 전환 폭을 조절할 수 있다.
-   ===================================================================== */
+   body[data-ui-phase]를 얹어주면, 실제 레이아웃 전환은 전부 여기서
+   처리한다. 코어는 작아지지 않는다 — 대기 중엔 위아래로 쌓여 있다가,
+   대화가 시작되면 코어(.stage)는 크기 그대로 왼쪽에 남고 대화+입력
+   (.chat-column, 대기 중에도 항상 보이던 그 열)이 오른쪽 칸으로
+   옮겨간다(.main이 1열→2열 그리드로 바뀜). 두 열로 갈라지는 순간 자체는
+   트랙 개수가 바뀌어 부드럽게 보간되지 않지만(브라우저 특성상
+   grid-template-columns는 트랙 수가 같을 때만 매끄럽게 전환된다),
+   .main의 max-width에는 트랜지션을 걸어서 전환이 완전히 뚝 끊기지는
+   않게 했다. */
 :root {
-  /* CAELUS CORE 리디자인으로 링 기본 크기가 190px→242px로 커진 만큼,
-     idle/active 무대 높이도 같이 키워서 잘리지 않게 했다. */
-  --idle-stage-row: 328px;   /* IDLE일 때 코어 무대의 높이 */
-  --active-stage-row: 112px; /* ACTIVE일 때(도킹 후) 코어 무대의 높이 */
-  --dock-scale: 0.34;        /* 도킹된 코어의 축소 비율 */
+  --idle-stage-row: 328px; /* IDLE일 때 코어 무대의 높이(세로 1열일 때) */
+  --active-stage-col: 300px; /* ACTIVE일 때 코어가 차지하는 왼쪽 칸의 폭 */
 }
 
 .main {
-  transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: grid-template-columns 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 body[data-ui-phase="active"] .main {
-  grid-template-rows: var(--active-stage-row) minmax(0, 1fr) auto;
+  grid-template-columns: var(--active-stage-col) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  max-width: 1040px;
 }
 
-.stage {
-  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+/* 좁은 창에서는 코어를 옆으로 보낼 자리가 없으니 대화 중에도 원래 세로
+   1열 배치로 되돌린다. 위 규칙과 우선순위(specificity)가 똑같아서, 이
+   규칙이 실제로 이기려면 반드시 소스 순서상 위 규칙보다 뒤에 있어야
+   한다(먼저 있으면 미디어 쿼리 조건이 맞아도 뒤에 나오는 기본 규칙에
+   덮어써진다) — 그래서 여기(도킹 섹션 바로 다음)에 둔다. */
+@media (max-width: 860px) {
+  body[data-ui-phase="active"] .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--idle-stage-row, 328px) minmax(0, 1fr);
+    max-width: none;
+  }
 }
-body[data-ui-phase="active"] .stage {
-  padding: 8px 18px;
-}
-
-.core-zone {
-  transition: min-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-body[data-ui-phase="active"] .core-zone {
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
-  padding-left: 4px;
-}
-
-/* transform: scale()로 #ring을 축소하면 그 안의 <canvas>도 같은 비율로
-   같이 줄어든다(캔버스 내부 좌표계는 그대로 둬도 됨). 음수 margin으로
-   축소된 만큼의 레이아웃 공간만 되돌려줘서, 옆의 대화창이 그 공간을
-   자연스럽게 넘겨받는다. */
-.jarvis-ring {
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), margin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-body[data-ui-phase="active"] .jarvis-ring {
-  transform: scale(var(--dock-scale));
-  /* (기본 크기 242px - 242px*0.34) / 2 — CAELUS CORE 리디자인으로 링
-     기본 크기가 커진 만큼(190px→242px) 도킹 보정값도 다시 계산했다. */
-  margin: -80px;
-}
-body.fullscreen-hud[data-ui-phase="active"] .jarvis-ring,
-body:fullscreen[data-ui-phase="active"] .jarvis-ring {
-  margin: -94px; /* 전체화면 링 기본 크기(286px) 기준 보정값 */
-}
-
-.core-caption {
-  transition: opacity 0.3s ease;
-}
-body[data-ui-phase="active"] .core-caption {
-  text-align: left;
-  justify-items: start;
-}
-body[data-ui-phase="active"] .core-caption strong {
-  display: none;
-}
-
-/* 응답 도착 시 "한 번 반짝"이는 연출은 이제 캔버스 파티클 쪽 pulse
-   효과(renderer.js)가 담당한다 — CSS pseudo-element 버스트는 제거. */
 
 /* 대화가 활성화된 동안 열려 있는 창(플로팅 패널)이 있다면 살짝 존재감을
    낮춰서 시선이 대화창으로 가게 하고, 마우스를 올리면 바로 다시
@@ -647,14 +619,18 @@ body:fullscreen .main,
 body.fullscreen-hud .main {
   max-width: 900px;
 }
+body[data-ui-phase="active"]:fullscreen .main,
+body.fullscreen-hud[data-ui-phase="active"] .main {
+  max-width: 1180px;
+}
 body.fullscreen-hud .stage,
 body:fullscreen .stage { box-shadow: 0 0 95px rgba(89,231,255,0.11), var(--shadow-float); }
-/* 전체화면에서는 링(286px)과 캡션 글자가 더 커지는 만큼, 코어 무대 행
-   자체의 높이도 같이 키워야 밑줄(명령을 기다리고 있습니다)이 안 잘린다. */
+/* 전체화면에서는 링(286px)과 캡션 글자가 더 커지는 만큼, 코어 무대의
+   높이(idle)/폭(active)도 같이 키워야 잘리지 않는다. */
 body.fullscreen-hud,
 body:fullscreen {
   --idle-stage-row: 380px;
-  --active-stage-row: 120px;
+  --active-stage-col: 340px;
 }
 body.fullscreen-hud .jarvis-ring,
 body:fullscreen .jarvis-ring { width: 286px; height: 286px; }
