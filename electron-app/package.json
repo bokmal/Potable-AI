@@ -1,0 +1,13 @@
+{
+  "name": "caelus",
+  "version": "0.1.0",
+  "description": "CAELUS - Claude Code CLI 기반 포터블 AI 작업환경 UI",
+  "main": "src/main/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

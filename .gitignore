@@ -1,0 +1,23 @@
+# --- 포터블 런타임 바이너리 (각자 다운로드해서 채워 넣음, node/README.md·git/README.md 참고) ---
+node/*
+!node/README.md
+git/*
+!git/README.md
+
+# --- Claude Code 인증/세션, 작업 기록 (USB 로컬 전용, 저장소에 커밋하지 않음) ---
+claude-home/*
+!claude-home/README.md
+
+# --- 실제 작업 파일 (USB 로컬 전용) ---
+projects/*
+!projects/README.md
+
+# --- Electron 앱 빌드 산출물 ---
+electron-app/node_modules/
+electron-app/dist/
+electron-app/out/
+
+# --- 로그/임시 파일 ---
+*.log
+Thumbs.db
+desktop.ini

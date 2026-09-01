@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>CAELUS</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">&#9678;</span>
+        <span class="brand-name">CAELUS</span>
+      </div>
+      <div class="sidebar-label">작업 기록</div>
+      <ul id="history-list" class="history-list"></ul>
+    </aside>
+
+    <main class="main">
+      <div class="stage">
+        <div id="ring" class="jarvis-ring idle">
+          <div class="ring-core"></div>
+        </div>
+        <div id="status-text" class="status-text">대기 중</div>
+      </div>
+
+      <div id="conversation" class="conversation"></div>
+
+      <form id="command-form" class="command-bar">
+        <input id="command-input" class="command-input" type="text"
+               placeholder="명령을 입력하세요..." autocomplete="off" />
+        <button type="submit" class="command-submit">전송</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
