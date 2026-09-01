@@ -36,7 +36,12 @@ class ClaudeBridge {
       // (start.bat 참고), 이 CLI 자식 프로세스의 PATH에만 추가한다. CLI가 파일에
       // git 명령을 실행할 때 필요하다.
       if (process.env.CAELUS_GIT_BIN) {
-        env.PATH = `${process.env.CAELUS_GIT_BIN};${env.PATH || ''}`;
+        // Windows에서는 PATH 환경변수의 실제 키 이름이 "Path"처럼 대소문자가
+        // 다를 수 있다. env.PATH로 그냥 덮어쓰면 별도의 새 키가 생겨서 기존
+        // PATH(node\ 포함)가 통째로 무시되는 문제가 있었다 — 실제 키를 찾아
+        // 그 값에 이어붙인다.
+        const pathKey = Object.keys(env).find((key) => key.toUpperCase() === 'PATH') || 'PATH';
+        env[pathKey] = `${process.env.CAELUS_GIT_BIN};${env[pathKey] || ''}`;
       }
 
       const child = spawn(this.command, args, {
