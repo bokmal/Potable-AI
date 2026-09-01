@@ -40,15 +40,15 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 const STATE_LABEL = {
-  idle: '대기 중',
-  listening: '입력 처리 중',
+  idle: '대기',
+  listening: '작업 중',
   response: '응답 완료',
-  error: '오류 발생',
+  error: '오류',
 };
 
 const MODE_LABEL = {
-  chat: '대화',
-  code: '코딩',
+  chat: '일반 대화',
+  code: '코딩 작업',
 };
 
 // 대화 한 스레드가 이 턴 수 이상이면 "길어졌다" 안내를 보여준다. 실제 토큰
@@ -149,6 +149,9 @@ setMode(currentMode);
 function setState(state) {
   ring.className = `jarvis-ring ${state}`;
   statusText.textContent = STATE_LABEL[state] || state;
+  document.body.dataset.state = state;
+  const badge = document.getElementById('system-state-badge');
+  if (badge) badge.textContent = STATE_LABEL[state] || state;
 }
 
 function playBeep(kind) {
@@ -210,9 +213,21 @@ function setBubbleContent(contentEl, role, text) {
   }
 }
 
+function bubbleRoleLabel(role) {
+  if (role === 'user') return { title: '사용자 명령', meta: 'USER COMMAND' };
+  if (role === 'error') return { title: '오류', meta: 'SYSTEM ERROR' };
+  return { title: 'Claude 응답', meta: 'CAELUS RESPONSE' };
+}
+
 function addBubble(role, text) {
   const el = document.createElement('div');
   el.className = `bubble ${role}`;
+
+  const labels = bubbleRoleLabel(role);
+  const headEl = document.createElement('div');
+  headEl.className = 'bubble-head';
+  headEl.innerHTML = `<strong>${labels.title}</strong><span>${labels.meta}</span>`;
+  el.appendChild(headEl);
 
   const contentEl = document.createElement('div');
   contentEl.className = 'bubble-content';
@@ -250,7 +265,7 @@ function clearConversation() {
 // 프로젝트(작업 폴더) — 사이드바 트리에 쓰일 이름/라벨 유틸
 // ===================================================================
 function projectLabel(name) {
-  return name === DEFAULT_PROJECT_NAME ? '일반 (자동 정리함)' : name;
+  return name === DEFAULT_PROJECT_NAME ? '일반 대화' : name;
 }
 
 async function loadProjects() {
@@ -752,8 +767,8 @@ newProjectInput.addEventListener('blur', hideNewProjectInput);
 // ===================================================================
 async function refreshThreadStatus() {
   const info = await window.caelus.getThreadInfo(activeProject);
-  const turnLabel = info.turnCount > 0 ? ` · ${info.turnCount}번째 메시지` : '';
-  threadStatusLabel.textContent = `\u{1F4C1} ${projectLabel(activeProject)}${turnLabel}`;
+  const turnLabel = info.turnCount > 0 ? ` · ${info.turnCount}턴` : '';
+  threadStatusLabel.textContent = `📁 ${projectLabel(activeProject)}${turnLabel}`;
   threadWarning.hidden = info.turnCount < LONG_THREAD_TURN_THRESHOLD;
   newThreadBtn.disabled = isBusy;
   return info;
@@ -923,6 +938,44 @@ document.addEventListener('keydown', (event) => {
     }
   }
 });
+
+
+
+// ===================================================================
+// Command Center polish — fullscreen HUD button and local clock
+// ===================================================================
+const fullscreenToggle = document.getElementById('fullscreen-toggle');
+if (fullscreenToggle) {
+  fullscreenToggle.addEventListener('click', async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        document.body.classList.add('fullscreen-hud');
+        fullscreenToggle.textContent = '창 모드로 ⛶';
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      document.body.classList.toggle('fullscreen-hud');
+      fullscreenToggle.textContent = document.body.classList.contains('fullscreen-hud') ? '창 모드로 ⛶' : '전체화면 HUD ⛶';
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const active = Boolean(document.fullscreenElement);
+    document.body.classList.toggle('fullscreen-hud', active);
+    fullscreenToggle.textContent = active ? '창 모드로 ⛶' : '전체화면 HUD ⛶';
+  });
+}
+
+function updateSystemClock() {
+  const clock = document.getElementById('system-clock');
+  if (!clock) return;
+  const now = new Date();
+  clock.textContent = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+updateSystemClock();
+setInterval(updateSystemClock, 30000);
 
 // ===================================================================
 // 초기 로드

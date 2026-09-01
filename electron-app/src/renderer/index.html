@@ -1,53 +1,82 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>CAELUS</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <span class="brand-mark">&#9678;</span>
-        <span class="brand-name">CAELUS</span>
-        <button id="settings-toggle" class="icon-btn" type="button" title="설정">&#9881;</button>
+  <div class="app" aria-label="CAELUS 로컬 AI 작업 콘솔">
+    <div class="ambient-grid" aria-hidden="true"></div>
+    <div class="scanline" aria-hidden="true"></div>
+    <div class="radar-glow" aria-hidden="true"></div>
+
+    <aside class="sidebar left-deck" aria-label="프로젝트와 대화 기록">
+      <div class="brand command-card compact">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">◉</span>
+          <div>
+            <span class="brand-kicker">PRIVATE LOCAL AI</span>
+            <span class="brand-name">CAELUS</span>
+          </div>
+        </div>
+        <button id="settings-toggle" class="icon-btn" type="button" title="설정">⚙</button>
       </div>
 
-      <div class="sidebar-label">작업 기록</div>
-      <input id="history-search" class="history-search" type="text" placeholder="기록 검색  (Ctrl+K)" autocomplete="off" />
-
-      <div id="history-scroll" class="history-scroll">
-        <div class="tree-section-header">
-          <span class="tree-section-title">프로젝트</span>
-          <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 폴더 만들기">&#43;</button>
+      <section class="command-card mission-panel">
+        <div class="panel-heading">
+          <span>프로젝트</span>
+          <span class="panel-code">MISSION CONTROL</span>
         </div>
-        <input id="new-project-input" class="new-project-input" type="text"
-               placeholder="새 프로젝트 이름, Enter로 생성" autocomplete="off" hidden />
-        <div id="project-groups" class="tree-groups"></div>
+        <label class="sr-only" for="history-search">대화 기록 검색</label>
+        <input id="history-search" class="history-search" type="text" placeholder="대화/프로젝트 검색  /  Ctrl+K" autocomplete="off" />
 
-        <div class="tree-section-header">
-          <span class="tree-section-title">기타 대화</span>
+        <div id="history-scroll" class="history-scroll">
+          <div class="tree-section-header">
+            <span class="tree-section-title">작업 프로젝트</span>
+            <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기">+</button>
+          </div>
+          <input id="new-project-input" class="new-project-input" type="text"
+                 placeholder="새 프로젝트 이름 입력 후 Enter" autocomplete="off" hidden />
+          <div id="project-groups" class="tree-groups"></div>
+
+          <div class="tree-section-header secondary-section">
+            <span class="tree-section-title">일반 대화</span>
+          </div>
+          <div id="general-groups" class="tree-groups"></div>
+
+          <ul id="search-results" class="history-list" hidden></ul>
         </div>
-        <div id="general-groups" class="tree-groups"></div>
+        <div id="history-empty" class="history-empty" hidden>아직 저장된 대화가 없습니다.</div>
+      </section>
 
-        <ul id="search-results" class="history-list" hidden></ul>
-      </div>
-      <div id="history-empty" class="history-empty" hidden>아직 기록이 없습니다</div>
+      <section class="command-card mini-telemetry" aria-label="시스템 상태">
+        <div class="panel-heading">
+          <span>상태</span>
+          <span class="status-dot online">ONLINE</span>
+        </div>
+        <div class="telemetry-grid">
+          <div><span>CORE</span><strong id="system-state-badge">대기</strong></div>
+          <div><span>MODE</span><strong>로컬</strong></div>
+          <div><span>LINK</span><strong>Claude</strong></div>
+          <div><span>TIME</span><strong id="system-clock">--:--</strong></div>
+        </div>
+      </section>
 
       <div id="settings-panel" class="settings-panel" hidden>
         <div class="settings-panel-arrow"></div>
         <button id="theme-toggle" class="settings-item" type="button">
-          <span>테마</span>
-          <span id="theme-toggle-label" class="settings-value">다크 &#9789;</span>
+          <span>테마 변경</span>
+          <span id="theme-toggle-label" class="settings-value">다크 ☾</span>
         </button>
         <button id="usage-link-btn" class="settings-item" type="button">
-          <span>Claude 사용량</span>
-          <span class="settings-value">열기 &#8599;</span>
+          <span>Claude 사용량 보기</span>
+          <span class="settings-value">열기 ↗</span>
         </button>
         <button id="export-btn" class="settings-item" type="button">
-          <span>대화 내보내기</span>
-          <span class="settings-value">&#8595;</span>
+          <span>현재 대화 내보내기</span>
+          <span class="settings-value">저장 ↓</span>
         </button>
         <button id="check-update-btn" class="settings-item" type="button">
           <span>업데이트 확인</span>
@@ -55,71 +84,138 @@
         </button>
         <div class="settings-divider"></div>
         <button id="clear-history-btn" class="settings-item danger" type="button">
-          <span>작업 기록 전체 삭제</span>
-          <span class="settings-value">&#128465;</span>
+          <span>전체 기록 삭제</span>
+          <span class="settings-value">삭제</span>
         </button>
       </div>
     </aside>
 
-    <main class="main">
-      <div class="stage">
+    <main class="main command-center" aria-label="AI 대화 작업공간">
+      <header class="top-command-bar command-card compact">
+        <div class="top-left">
+          <span class="micro-label">AI CORE INTERFACE</span>
+          <strong>로컬 작업 콘솔</strong>
+        </div>
+        <div class="top-status" aria-live="polite">
+          <span class="status-pill"><span class="status-led"></span>시스템 온라인</span>
+          <button id="fullscreen-toggle" class="hud-btn" type="button" title="전체화면 HUD 모드">전체화면 HUD ⛶</button>
+        </div>
+      </header>
+
+      <section class="stage command-card" aria-label="CAELUS AI Core">
         <div class="hud-corner tl"></div>
         <div class="hud-corner tr"></div>
         <div class="hud-corner bl"></div>
         <div class="hud-corner br"></div>
-        <div id="ring" class="jarvis-ring idle">
-          <div class="ring-orbit"></div>
-          <div class="ring-inner"></div>
-          <div class="ring-core"></div>
-          <div class="ring-bars">
-            <span></span><span></span><span></span><span></span><span></span>
+        <div class="stage-grid-lines" aria-hidden="true"></div>
+        <div class="stage-header">
+          <span>CAELUS CORE</span>
+          <span>LOCAL SESSION ACTIVE</span>
+        </div>
+        <div class="core-zone">
+          <div id="ring" class="jarvis-ring idle" aria-hidden="true">
+            <div class="ring-orbit orbit-a"></div>
+            <div class="ring-orbit orbit-b"></div>
+            <div class="ring-orbit orbit-c"></div>
+            <div class="ring-orbit orbit-d"></div>
+            <div class="ring-inner"></div>
+            <div class="ring-core"></div>
+            <div class="ring-bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="core-caption">
+            <span id="status-text" class="status-text">대기 중</span>
+            <strong>명령을 기다리고 있습니다</strong>
           </div>
         </div>
-        <div id="status-text" class="status-text">대기 중</div>
-      </div>
+      </section>
 
-      <div id="thread-status" class="thread-status">
-        <span id="thread-status-label" class="thread-status-label">&#128193; general</span>
-        <button id="new-thread-btn" class="text-btn" type="button">새 대화 시작</button>
-      </div>
-      <div id="thread-warning" class="thread-warning" hidden>
-        이 대화가 길어졌어요 — 새로 시작하면 더 빠르고 정확할 수 있어요
-      </div>
-      <div id="resume-banner" class="resume-banner" hidden>
-        <span>과거 대화를 보고 있습니다.</span>
-        <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화하기</button>
-      </div>
-
-      <div id="conversation" class="conversation">
-        <div id="conversation-empty" class="conversation-empty">
-          <div class="conversation-empty-mark">&#9678;</div>
-          <div class="conversation-empty-title">무엇을 도와드릴까요?</div>
-          <div class="conversation-empty-hint">아래 입력창에 명령을 입력하거나, 자주 쓰는 명령 버튼을 눌러보세요.</div>
+      <section class="conversation-shell command-card" aria-label="대화">
+        <div id="thread-status" class="thread-status">
+          <span id="thread-status-label" class="thread-status-label">📁 일반 대화</span>
+          <button id="new-thread-btn" class="text-btn" type="button">새 대화</button>
         </div>
-      </div>
+        <div id="thread-warning" class="thread-warning" hidden>
+          대화가 길어졌습니다. 새 대화로 시작하면 속도와 정확도가 좋아질 수 있습니다.
+        </div>
+        <div id="resume-banner" class="resume-banner" hidden>
+          <span>이전 대화 기록을 보고 있습니다.</span>
+          <button id="resume-thread-btn" class="text-btn" type="button">이어서 대화</button>
+        </div>
 
-      <div id="preset-row" class="preset-row">
-        <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 요약</button>
-        <button type="button" class="preset-btn" data-text="지금까지 변경된 파일이 있는지 git 상태를 확인해줘">git 상태 확인</button>
-        <button type="button" class="preset-btn" data-text="이 프로젝트의 테스트를 실행해줘">테스트 실행</button>
-      </div>
+        <div id="conversation" class="conversation">
+          <div id="conversation-empty" class="conversation-empty">
+            <div class="conversation-empty-mark">◉</div>
+            <div class="conversation-empty-title">CAELUS 준비 완료</div>
+            <div class="conversation-empty-hint">아래 입력창에 원하는 작업을 적어주세요. 기존 Claude Code 연결을 통해 로컬 프로젝트에서 작업합니다.</div>
+          </div>
+        </div>
+      </section>
 
-      <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
-        <button type="button" class="mode-btn active" data-mode="chat">
-          대화 <span class="mode-hint">일반 채팅처럼 답함</span>
-        </button>
-        <button type="button" class="mode-btn" data-mode="code">
-          코딩 <span class="mode-hint">파일 작업 시 신중하게 확인</span>
-        </button>
-      </div>
+      <section class="control-strip command-card compact" aria-label="자주 쓰는 명령과 모드 선택">
+        <div id="preset-row" class="preset-row">
+          <button type="button" class="preset-btn" data-text="이 프로젝트 구조를 요약해줘">프로젝트 분석</button>
+          <button type="button" class="preset-btn" data-text="지금까지 변경된 파일이 있는지 git 상태를 확인해줘">Git 상태</button>
+          <button type="button" class="preset-btn" data-text="이 프로젝트의 테스트를 실행해줘">테스트 실행</button>
+        </div>
 
-      <form id="command-form" class="command-bar">
+        <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
+          <button type="button" class="mode-btn active" data-mode="chat">
+            일반 대화 <span class="mode-hint">설명/상담</span>
+          </button>
+          <button type="button" class="mode-btn" data-mode="code">
+            코딩 작업 <span class="mode-hint">프로젝트 수정</span>
+          </button>
+        </div>
+      </section>
+
+      <form id="command-form" class="command-bar command-card compact">
+        <label class="sr-only" for="command-input">명령 입력</label>
+        <span class="command-prefix">명령</span>
         <input id="command-input" class="command-input" type="text"
-               placeholder="명령을 입력하세요... (Enter 전송, Esc 취소)" autocomplete="off" />
-        <button type="button" id="cancel-btn" class="cancel-btn" hidden>취소</button>
+               placeholder="작업 내용을 입력하세요...  Enter 전송  /  Esc 취소" autocomplete="off" />
+        <button type="button" id="cancel-btn" class="cancel-btn" hidden>중지</button>
         <button type="submit" class="command-submit">전송</button>
       </form>
     </main>
+
+    <aside class="right-panel system-deck" aria-label="작업 상태와 워크스페이스">
+      <section class="command-card activity-panel">
+        <div class="panel-heading">
+          <span>작업 상태</span>
+          <span class="panel-code">SYSTEM ACTIVITY</span>
+        </div>
+        <div class="activity-list" aria-hidden="true">
+          <div class="activity-row active"><span></span><div><strong>분석 대기</strong><small>프로젝트 구조 확인</small></div></div>
+          <div class="activity-row"><span></span><div><strong>작업 연결</strong><small>Claude Code bridge</small></div></div>
+          <div class="activity-row"><span></span><div><strong>응답 스트림</strong><small>실시간 출력 채널</small></div></div>
+        </div>
+      </section>
+
+      <section class="command-card file-panel">
+        <div class="panel-heading">
+          <span>작업 공간</span>
+          <span class="panel-code">LOCAL WORKSPACE</span>
+        </div>
+        <div class="file-tree" aria-hidden="true">
+          <div>▸ 프로젝트</div>
+          <div class="indent">├─ 현재 작업</div>
+          <div class="indent">├─ 대화 기록</div>
+          <div class="indent">└─ 코드 작업공간</div>
+          <div>▸ Claude 연결</div>
+          <div>▸ 명령 스트림</div>
+        </div>
+      </section>
+
+      <section class="command-card protocol-panel">
+        <div class="panel-heading">
+          <span>안전 모드</span>
+          <span class="panel-code">LOCAL FIRST</span>
+        </div>
+        <p>기존 Claude Code 실행, 프로젝트 저장, IPC 흐름은 유지하고 화면 레이어만 개선했습니다.</p>
+      </section>
+    </aside>
   </div>
 
   <script src="renderer.js"></script>
