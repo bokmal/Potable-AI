@@ -101,6 +101,11 @@ JSON으로 저장된다 (`electron-app/src/main/store.js`). 자세한 내용은
 - [ ] `install_runtime.ps1`은 nodejs.org / GitHub API(github.com)에 직접 접속해야
       한다 — 사내 프록시·방화벽 환경에서는 실패할 수 있으며, 이 경우 각 폴더의
       README 수동 설치 절차로 대체해야 한다.
+- [x] **(실제 확인됨)** USB가 exFAT/FAT32로 포맷돼 있으면 `@anthropic-ai/claude-code`
+      설치 중 `EISDIR ... link ...` 에러로 실패한다 — 그 설치 스크립트가 바이너리를
+      하드링크로 배치하는데, exFAT/FAT32는 하드링크를 지원하지 않기 때문이다.
+      **USB를 NTFS로 재포맷**해야 한다 (이 프로젝트는 Windows 전용이라 NTFS로 바꿔도
+      무방하다). `install_runtime.ps1`이 설치 전 파일 시스템을 확인해 경고를 띄운다.
 
 이 저장소의 모든 스크립트는 Windows 전용(batch/PowerShell)이며, 이 개발
 환경(Linux)에서는 실제 실행 테스트를 하지 못했다. Windows PC에서 최초

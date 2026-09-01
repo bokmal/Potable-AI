@@ -33,9 +33,31 @@ function Step { param([string]$Message) Write-Host "`n[CAELUS] $Message" -Foregr
 function Ok { param([string]$Message) Write-Host "  -> $Message" -ForegroundColor Green }
 function SkipStep { param([string]$Message) Write-Host "  -> $Message (건너뜀)" -ForegroundColor DarkGray }
 
+function Get-DriveFileSystem {
+    param([string]$Path)
+    $qualifier = (Split-Path -Path $Path -Qualifier) -replace ':', ''
+    try {
+        return (Get-Volume -DriveLetter $qualifier -ErrorAction Stop).FileSystem
+    } catch {
+        return $null
+    }
+}
+
 try {
     # 최신 TLS 사용 (구형 Windows/PowerShell 기본값이 TLS1.0이라 다운로드가 실패할 수 있음)
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    # 포터블 SSD/USB는 보통 exFAT로 출고되는데, exFAT/FAT32는 하드링크를 지원하지 않는다.
+    # @anthropic-ai/claude-code 의 설치 스크립트가 바이너리를 하드링크로 배치하므로,
+    # NTFS가 아니면 아래 3단계에서 "EISDIR ... link ..." 에러로 실패한다. 미리 경고한다.
+    $fsType = Get-DriveFileSystem -Path $UsbRoot
+    if ($fsType -and $fsType -ne "NTFS") {
+        Write-Host "`n[경고] USB 드라이브 파일 시스템이 '$fsType' 입니다 (NTFS 아님)." -ForegroundColor Yellow
+        Write-Host "        Claude Code CLI 설치 과정이 하드링크(NTFS 전용 기능)를 사용하므로," -ForegroundColor Yellow
+        Write-Host "        exFAT/FAT32에서는 아래 3단계가 'EISDIR ... link ...' 에러로 실패할 수 있습니다." -ForegroundColor Yellow
+        Write-Host "        가능하면 지금 중단하고 USB를 NTFS로 재포맷한 뒤 다시 실행하는 것을 권장합니다." -ForegroundColor Yellow
+        Write-Host "        (탐색기에서 드라이브 우클릭 -> 포맷 -> 파일 시스템: NTFS)`n" -ForegroundColor Yellow
+    }
 
     # --- 1. Node.js portable ---
     $nodeExe = Join-Path $UsbRoot "node\node.exe"
@@ -102,7 +124,13 @@ try {
     # --- 3. Claude Code CLI ---
     Step "Claude Code CLI 설치 중 (node\npm.cmd install -g @anthropic-ai/claude-code)..."
     & $npmCmd install -g "@anthropic-ai/claude-code"
-    if ($LASTEXITCODE -ne 0) { throw "Claude Code CLI 설치 실패 (exit $LASTEXITCODE)" }
+    if ($LASTEXITCODE -ne 0) {
+        if ($fsType -and $fsType -ne "NTFS") {
+            throw "Claude Code CLI 설치 실패 (exit $LASTEXITCODE) - USB가 NTFS가 아니라서(현재: $fsType) " + `
+                  "하드링크 생성에 실패했을 가능성이 높습니다. USB를 NTFS로 재포맷한 뒤 다시 실행해주세요."
+        }
+        throw "Claude Code CLI 설치 실패 (exit $LASTEXITCODE)"
+    }
     Ok "Claude Code CLI 설치 완료"
 
     # --- 4. Electron 앱 의존성 ---
