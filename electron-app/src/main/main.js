@@ -183,13 +183,18 @@ ipcMain.handle('caelus:cancel-command', (event, taskId) => {
 // --- IPC: 명령 전송 → Claude Code CLI 호출 ---
 // UI 상태 전이: listening(입력 처리 중) → response(완료) / error(오류)
 // mode: 'chat'(기본, 대화체) | 'code'(CLI 기본 동작 — 신중한 코딩 에이전트)
-// projectName: projects\<projectName> 을 작업 디렉터리로 사용(선택)
+// projectName: projects\<projectName> 을 작업 디렉터리로 사용(선택, 안 고르면
+// projects\ 자체를 씀 — electron-app\ 폴더가 기본값이 되는 걸 방지)
 ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => {
   const task = store.createTask(text, mode);
   activeTaskId = task.task_id;
   send(event, 'caelus:status', { state: 'listening', taskId: task.task_id });
 
-  const cwd = projectName ? path.join(PROJECTS_DIR, projectName) : undefined;
+  // 프로젝트를 안 골라도 최소한 projects\ 폴더를 작업 디렉터리로 쓴다.
+  // (undefined로 두면 Electron 프로세스 자신의 cwd, 즉 electron-app\ 폴더가
+  // 기본값이 돼서 코딩 모드 결과물이 앱 소스 코드 폴더에 섞여 들어가는
+  // 문제가 있었다 — projects\ 자체는 이미 있는 폴더이므로 안전한 기본값이다.)
+  const cwd = projectName ? path.join(PROJECTS_DIR, projectName) : PROJECTS_DIR;
 
   try {
     const responseText = await claude.send({
