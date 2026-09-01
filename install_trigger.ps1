@@ -103,7 +103,10 @@ foreach (`$disk in `$disks) {
     if (`$disk.VolumeSerialNumber -eq `$serial) {
         `$startBat = Join-Path `$disk.DeviceID (Join-Path `$relativePath 'start.bat')
         if (Test-Path -LiteralPath `$startBat) {
-            Start-Process -FilePath `$startBat -WorkingDirectory (Split-Path -LiteralPath `$startBat -Parent)
+            # -LiteralPath 와 -Parent 를 같이 쓰면 일부 PowerShell 버전에서
+            # AmbiguousParameterSet 오류가 난다(실사용 중 확인됨). -Parent 는
+            # 기본 동작이라 안 써도 된다.
+            Start-Process -FilePath `$startBat -WorkingDirectory (Split-Path -LiteralPath `$startBat)
         }
         break
     }

@@ -73,7 +73,11 @@ if ($RunStart) {
 
     $startBatPath = Join-Path -Path $driveLetter -ChildPath (Join-Path $RelativePath "start.bat")
     if (Test-Path -LiteralPath $startBatPath) {
-        Start-Process -FilePath $startBatPath -WorkingDirectory (Split-Path -LiteralPath $startBatPath -Parent)
+        # 주의: Split-Path에 -LiteralPath와 -Parent를 같이 쓰면 일부 PowerShell
+        # 버전에서 "매개 변수 집합을 확인할 수 없습니다"(AmbiguousParameterSet)
+        # 오류가 난다(실사용 중 확인됨). -Parent는 스위치를 안 줘도 기본
+        # 동작이므로 그냥 뺀다.
+        Start-Process -FilePath $startBatPath -WorkingDirectory (Split-Path -LiteralPath $startBatPath)
     } else {
         Write-Warning "start.bat 을 찾을 수 없습니다: $startBatPath"
         exit 1
