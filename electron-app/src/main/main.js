@@ -361,6 +361,14 @@ ipcMain.handle('caelus:check-update', () => {
   });
 });
 
+// --- IPC: 안전 종료(§M) — 렌더러가 진행 중이던 요청을 취소하고 결과를
+// 기다린 뒤 호출한다. app.quit()은 위 before-quit 훅을 거치므로, 혹시
+// activeChild가 아직 안 지워졌어도(방어적으로) 한 번 더 안전하게 정리된다.
+ipcMain.handle('caelus:quit-app', () => {
+  app.quit();
+  return true;
+});
+
 // --- IPC: 진행 중인 요청 취소 ---
 ipcMain.handle('caelus:cancel-command', (event, taskId) => {
   if (activeChild && activeTaskId === taskId) {

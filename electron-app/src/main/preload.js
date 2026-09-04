@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('caelus', {
   exportConversation: (content, suggestedName) =>
     ipcRenderer.invoke('caelus:export-conversation', { content, suggestedName }),
   checkUpdate: () => ipcRenderer.invoke('caelus:check-update'),
+  quitApp: () => ipcRenderer.invoke('caelus:quit-app'),
 
   onStatus: (callback) => {
     ipcRenderer.on('caelus:status', (_event, payload) => callback(payload));

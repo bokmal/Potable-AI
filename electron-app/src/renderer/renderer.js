@@ -32,6 +32,7 @@ const resumeThreadBtn = document.getElementById('resume-thread-btn');
 const osMenuToggle = document.getElementById('os-menu-toggle');
 const osMenuList = document.getElementById('os-menu-list');
 const menuRecentEl = document.getElementById('menu-recent');
+const safeQuitBtn = document.getElementById('safe-quit-btn');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -994,6 +995,39 @@ window.caelus.onStream(({ taskId, chunk }) => {
 cancelBtn.addEventListener('click', async () => {
   if (!pendingTaskId) return;
   await window.caelus.cancelCommand(pendingTaskId);
+});
+
+// ===================================================================
+// §M — 작업 정지 + 안전 종료: 급하게 나가야 할 때, 진행 중인 요청을 정리
+// (취소 + 그때까지의 응답 저장)하고 나서 앱을 완전히 종료한다. 앱이 완전히
+// 종료되면 그 순간부터 SSD를 물리적으로 뽑아도 안전하다.
+// ===================================================================
+async function waitUntilNotBusy(timeoutMs) {
+  const start = Date.now();
+  while (isBusy && Date.now() - start < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+safeQuitBtn.addEventListener('click', async () => {
+  const message = isBusy
+    ? '지금 하던 작업을 정리(취소 + 여기까지의 응답 저장)하고 CAELUS를 종료할까요?\n종료되면 SSD를 안전하게 분리할 수 있는 상태가 됩니다.'
+    : 'CAELUS를 종료할까요?\n종료되면 SSD를 안전하게 분리할 수 있는 상태가 됩니다.';
+  if (!confirm(message)) return;
+
+  safeQuitBtn.disabled = true;
+
+  if (isBusy && pendingTaskId) {
+    // 취소만 요청하고 끝내면 안 된다 — form의 submit 핸들러가 sendCommand의
+    // 결과(취소된 응답 저장 완료)를 받아 isBusy를 다시 false로 되돌릴 때까지
+    // 기다려야, "저장하고 중단"이 실제로 끝난 뒤에 앱을 닫을 수 있다.
+    safeQuitBtn.classList.add('busy');
+    safeQuitBtn.title = '작업 정리 중… 곧 종료됩니다';
+    await window.caelus.cancelCommand(pendingTaskId);
+    await waitUntilNotBusy(15000);
+  }
+
+  await window.caelus.quitApp();
 });
 
 form.addEventListener('submit', async (event) => {

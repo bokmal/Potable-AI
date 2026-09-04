@@ -54,6 +54,15 @@
       </div>
     </div>
 
+    <!-- 급하게 나가야 할 때를 위한 상시 노출 버튼(§M) — 메뉴 안에 숨기지
+         않고 항상 화면에 보이는 위치에 둔다. 진행 중인 요청이 있으면 먼저
+         취소 + 그때까지의 응답을 저장한 뒤에 앱을 완전히 종료한다 —
+         종료되면 그 순간부터 SSD를 물리적으로 뽑아도 안전하다. -->
+    <button id="safe-quit-btn" type="button" class="safe-quit-btn" title="작업 정지 후 안전 종료">
+      <span class="sq-ic" aria-hidden="true">⏻</span>
+      <span class="sr-only">작업 정지 후 안전 종료(SSD 분리 가능한 상태로 종료)</span>
+    </button>
+
     <main class="main command-center" aria-label="AI 대화 작업공간">
       <section class="stage" aria-label="CAELUS AI Core">
         <div class="core-zone">

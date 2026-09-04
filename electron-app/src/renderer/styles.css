@@ -174,6 +174,25 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 /* --- 좌상단 메뉴: 이 앱에서 항상 떠 있는 유일한 상시 UI --- */
 .os-menu { position: fixed; top: 18px; left: 18px; z-index: 50; }
+
+/* §M — 급하게 나갈 때를 위한 상시 노출 버튼. .os-menu와 대칭으로 반대쪽
+   구석에 고정해 항상 손이 닿는 자리에 둔다(메뉴 depth 안에 숨기지 않음). */
+.safe-quit-btn {
+  position: fixed; top: 18px; right: 18px; z-index: 50;
+  width: 42px; height: 42px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-float);
+  color: var(--text-soft); font-size: 17px;
+}
+.safe-quit-btn:hover { color: var(--warning); border-color: rgba(255, 204, 102, 0.4); }
+.safe-quit-btn.busy { color: var(--warning); border-color: rgba(255, 204, 102, 0.5); animation: safe-quit-pulse 1.1s ease-in-out infinite; }
+.safe-quit-btn:disabled { opacity: 0.6; }
+@keyframes safe-quit-pulse {
+  0%, 100% { box-shadow: var(--shadow-float), 0 0 0 rgba(255, 204, 102, 0); }
+  50% { box-shadow: var(--shadow-float), 0 0 14px rgba(255, 204, 102, 0.45); }
+}
 .os-menu-trigger {
   display: flex; align-items: center; gap: 9px;
   border: 1px solid var(--line);
