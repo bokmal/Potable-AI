@@ -129,7 +129,13 @@ class ClaudeBridge {
 
       child.on('close', (code) => {
         if (cancelled) {
-          reject(new Error('사용자가 요청을 취소했습니다.'));
+          // 취소돼도 그때까지 스트리밍되던 stdout을 버리지 않고 Error에
+          // 실어 보낸다 — 호출자(main.js)가 "취소됐지만 여기까지는 답했다"를
+          // 기록/화면에 보존할 수 있게 하기 위함(§M "일시정지" 기능의 전제).
+          const err = new Error('사용자가 요청을 취소했습니다.');
+          err.cancelled = true;
+          err.partialText = stdout.trim();
+          reject(err);
         } else if (code === 0) {
           resolve(stdout.trim());
         } else {

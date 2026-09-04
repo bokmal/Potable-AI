@@ -48,6 +48,7 @@ const STATE_LABEL = {
   listening: '작업 중',
   response: '응답 완료',
   error: '오류',
+  cancelled: '중단됨',
 };
 
 const MODE_LABEL = {
@@ -726,6 +727,19 @@ async function viewThread(project, threadEntry) {
     task.logs.forEach((log) => {
       if (log.content.startsWith('[오류] ')) {
         addBubble('error', log.content.slice('[오류] '.length));
+      } else if (log.content.startsWith('[중단됨] ')) {
+        // 취소된 요청 — 그때까지 스트리밍됐던 응답을 "중단됨" 표시와 함께
+        // 그대로 보여준다(§M, main.js의 send-command catch 블록 참고).
+        const bubble = addBubble('assistant', log.content.slice('[중단됨] '.length));
+        bubble.el.classList.add('cancelled');
+        const head = bubble.el.querySelector('.bubble-head');
+        const titleEl = head && head.querySelector('strong');
+        if (titleEl) {
+          const badge = document.createElement('span');
+          badge.className = 'bubble-cancelled-badge';
+          badge.textContent = '중단됨';
+          titleEl.after(badge);
+        }
       } else {
         addBubble('assistant', log.content);
       }
@@ -964,7 +978,7 @@ window.caelus.onStatus(({ state, taskId }) => {
   }
   if (state === 'response') playBeep('response');
   if (state === 'error') playBeep('error');
-  if (state === 'response' || state === 'error') {
+  if (state === 'response' || state === 'error' || state === 'cancelled') {
     idleTimer = setTimeout(() => setState('idle'), 4000);
   }
 });
@@ -1004,7 +1018,22 @@ form.addEventListener('submit', async (event) => {
 
   try {
     const result = await window.caelus.sendCommand(text, currentMode, activeProject);
-    if (pendingBubble) {
+    if (result.cancelled) {
+      // 취소됨 — 스트리밍되던 말풍선을 지우지 않고 "중단됨" 표시만 덧붙인다
+      // (§M "일시정지" 기능의 전제: 여기까지 답한 내용은 화면/기록 양쪽에
+      // 그대로 남아야 한다).
+      const bubble = pendingBubble || addBubble('assistant', '');
+      setBubbleContent(bubble.contentEl, 'assistant', result.text || '(응답을 받기 전에 취소됨)');
+      bubble.el.classList.add('cancelled');
+      const head = bubble.el.querySelector('.bubble-head');
+      const titleEl = head && head.querySelector('strong');
+      if (titleEl && !head.querySelector('.bubble-cancelled-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'bubble-cancelled-badge';
+        badge.textContent = '중단됨';
+        titleEl.after(badge);
+      }
+    } else if (pendingBubble) {
       setBubbleContent(pendingBubble.contentEl, 'assistant', result.text);
     } else {
       addBubble('assistant', result.text);

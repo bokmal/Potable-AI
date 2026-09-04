@@ -39,6 +39,28 @@ const store = new Store();
 let activeChild = null;
 let activeTaskId = null;
 
+// child.kill()만으로는 부족할 수 있다 — Windows에서는 claudeBridge.js가
+// shell:true로 띄우기 때문에 activeChild는 진짜 claude 프로세스가 아니라
+// 그걸 감싼 cmd.exe다. child.kill()은 그 cmd.exe만 죽이고, 실제 작업 중이던
+// claude/node 프로세스는 고아로 남아 파일을 계속 건드릴 수 있다("취소했는데
+// 계속 수정됨" 시나리오). taskkill /t로 그 프로세스가 띄운 자식 트리 전체를
+// 강제 종료한다. macOS/Linux는 shell:true를 안 쓰므로(claudeBridge.js 참고)
+// activeChild가 곧 실제 claude 프로세스라 기존 kill()로 충분하다.
+function killChildTree(child, callback) {
+  if (!child) {
+    if (callback) callback();
+    return;
+  }
+  if (process.platform === 'win32') {
+    execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], () => {
+      if (callback) callback();
+    });
+  } else {
+    child.kill();
+    if (callback) callback();
+  }
+}
+
 // Claude Code CLI 로그인 세션이 USB가 뽑히는 도중 손상됐을 수 있으니, 매
 // 실행마다 확인/백업한다 (자세한 설명은 credentialsGuard.js 참고).
 guardCredentials(process.env.CAELUS_HOME);
@@ -77,6 +99,22 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// 요청 진행 중에 창을 닫아도(또는 OS가 앱을 종료시켜도) claude 프로세스가
+// 백그라운드에 남지 않도록 한다. 종료를 한 번 가로채 실제로 프로세스가
+// 죽는 걸 기다린 뒤(taskkill은 비동기) 다시 quit()을 호출 — 그냥 fire-and-
+// forget으로 두면 Electron이 taskkill 콜백이 오기 전에 프로세스 자체를
+// 먼저 종료해버려 kill 요청이 씹힐 수 있다.
+let quitting = false;
+app.on('before-quit', (event) => {
+  if (activeChild && !quitting) {
+    quitting = true;
+    event.preventDefault();
+    const child = activeChild;
+    activeChild = null;
+    killChildTree(child, () => app.quit());
+  }
 });
 
 function send(event, channel, payload) {
@@ -327,7 +365,7 @@ ipcMain.handle('caelus:check-update', () => {
 ipcMain.handle('caelus:cancel-command', (event, taskId) => {
   if (activeChild && activeTaskId === taskId) {
     activeChild.emit('caelus:cancelled');
-    activeChild.kill();
+    killChildTree(activeChild);
     return true;
   }
   return false;
@@ -413,6 +451,19 @@ ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => 
 
     return { taskId: task.task_id, text: responseText };
   } catch (err) {
+    if (err.cancelled) {
+      // 취소 — claudeBridge.js가 그때까지 쌓인 stdout을 err.partialText로
+      // 실어 보낸다. "[오류]"가 아니라 "[중단됨]"으로 저장해 실제 응답
+      // 내용을 보존한다(§M "일시정지" 기능의 전제 — 저장하고 중단).
+      // ⚠️ ipcMain.handle에서 던진 Error는 렌더러로 건너갈 때 message
+      // 문자열만 남고 커스텀 속성(cancelled/partialText)이 사라지므로,
+      // 여기서는 throw하지 않고 정상 반환값에 담아 보낸다.
+      const partial = err.partialText || '';
+      store.updateTaskStatus(task.task_id, 'cancelled');
+      store.appendLog(task.task_id, `[중단됨] ${partial}`);
+      send(event, 'caelus:status', { state: 'cancelled', taskId: task.task_id });
+      return { taskId: task.task_id, cancelled: true, text: partial };
+    }
     store.updateTaskStatus(task.task_id, 'error');
     store.appendLog(task.task_id, `[오류] ${err.message}`);
     send(event, 'caelus:status', { state: 'error', taskId: task.task_id, message: err.message });
