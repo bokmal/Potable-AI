@@ -179,7 +179,20 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
 }
 
 /* --- 좌상단 메뉴: 이 앱에서 항상 떠 있는 유일한 상시 UI --- */
-.os-menu { position: fixed; top: 18px; left: 18px; z-index: 50; }
+.os-menu { position: fixed; top: 18px; left: 18px; z-index: 50; display: flex; align-items: center; gap: 8px; }
+
+/* 대화/프로젝트 목록을 메뉴 열지 않고 바로 여는 단축 버튼 — §M의
+   safe-quit-btn과 같은 원형 아이콘 버튼 뼈대를 그대로 재사용해 통일감을
+   준다. */
+.os-menu-quick-btn {
+  width: 42px; height: 42px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-float);
+  color: var(--text-soft); font-size: 17px;
+}
+.os-menu-quick-btn:hover { color: var(--idle); border-color: var(--line-hot); }
 
 /* §M — 급하게 나갈 때를 위한 상시 노출 버튼. .os-menu와 대칭으로 반대쪽
    구석에 고정해 항상 손이 닿는 자리에 둔다(메뉴 depth 안에 숨기지 않음). */
@@ -211,24 +224,40 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
 }
 .os-menu-trigger .brand-mark { width: 30px; height: 30px; font-size: 15px; }
 .os-menu-trigger-label { font-family: var(--font-mono); font-weight: 800; letter-spacing: 0.16em; font-size: 13px; }
+/* 실기기(윈도우 PC)에서 "메뉴 눌렀을 때 메뉴가 잘 안보여"라는 피드백을
+   받고 다시 도장한 드롭다운 — 예전엔 배경 불투명도/테두리 대비가 미묘하게만
+   달라서 눈에 확 안 띄었다(이 프로젝트가 이미 한 번 겪은 "바꾼 정도가 너무
+   미묘했던" 실수와 같은 계열). 이번엔 거의 불투명한 배경 + 두꺼운 형광
+   테두리 + 위쪽 액센트 띠 + 훨씬 강한 글로우로, 배경 파티클 애니메이션 위에
+   있어도 확실히 도드라지게 만든다. */
 .os-menu-list {
-  position: absolute; top: calc(100% + 8px); left: 0; min-width: 244px;
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: rgba(4, 10, 19, 0.96);
-  box-shadow: var(--shadow-float), 0 0 35px rgba(93,232,255,0.08);
-  backdrop-filter: blur(18px);
+  position: absolute; top: calc(100% + 10px); left: 0; min-width: 272px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px;
+  border: 2px solid var(--line-hot);
+  border-radius: 18px;
+  background: rgba(3, 9, 17, 0.99);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4), 0 0 60px rgba(93,232,255,0.22);
+  backdrop-filter: blur(22px);
 }
-:root[data-theme="light"] .os-menu-list { background: rgba(255,255,255,0.96); }
+/* 메뉴 맨 위를 가로지르는 밝은 시안 띠 — "떠 있는 얇은 유리판"이 아니라
+   "지금 열려 있는 패널"임을 즉시 알아보게 하는 확실한 시각 신호. */
+.os-menu-list::before {
+  content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--idle), transparent);
+  border-radius: 999px;
+}
+:root[data-theme="light"] .os-menu-list {
+  background: rgba(255,255,255,0.99);
+  box-shadow: 0 24px 80px rgba(23,60,82,0.22), 0 0 0 1px rgba(23,60,82,0.06), 0 0 44px rgba(0,168,210,0.16);
+}
 .os-menu-list[hidden] { display: none; }
 .os-menu-item {
-  width: 100%; text-align: left; border: none; background: transparent; color: var(--text);
-  padding: 10px 12px; border-radius: 11px; font-size: 13px; font-weight: 600;
+  width: 100%; text-align: left; border: 1px solid transparent; background: rgba(93,232,255,0.045); color: var(--text);
+  padding: 12px 14px; border-radius: 12px; font-size: 14px; font-weight: 700;
 }
-.os-menu-item:hover { background: rgba(93,232,255,0.1); color: var(--text); }
-.os-menu-divider { height: 1px; margin: 5px 4px; background: var(--line); }
+.os-menu-item:hover { background: rgba(93,232,255,0.16); border-color: var(--line-hot); color: var(--text); }
+.os-menu-divider { height: 1px; margin: 6px 4px; background: var(--line-strong); }
 
 /* 메뉴 안으로 들어온 모드 선택 — 기존 .mode-toggle/.mode-btn을 그대로 쓰되
    메뉴 폭에 맞게 좀 더 작게. */
@@ -237,27 +266,28 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
 
 .menu-new {
   width: 100%; display: flex; align-items: center; gap: 9px;
-  text-align: left; padding: 10px 10px; border-radius: 12px;
-  font-size: 13px; font-weight: 700; color: var(--idle);
+  text-align: left; padding: 11px 12px; border-radius: 13px;
+  font-size: 14px; font-weight: 800; color: var(--idle);
+  background: var(--idle-soft); border: 1px solid var(--line-hot);
 }
-.menu-new:hover { background: rgba(93,232,255,0.1); }
+.menu-new:hover { background: rgba(93,232,255,0.22); }
 .menu-new-plus {
   flex: 0 0 auto; width: 18px; height: 18px; display: grid; place-items: center;
   border: 1px solid var(--line-strong); border-radius: 50%; font-size: 12px;
 }
 
 .menu-section-title {
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-faint); padding: 4px 10px 4px;
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-weight: 700; color: var(--text-soft); padding: 6px 10px 4px;
 }
-.menu-recent { display: grid; gap: 2px; margin-bottom: 4px; }
+.menu-recent { display: grid; gap: 3px; margin-bottom: 4px; }
 .menu-recent-empty { padding: 8px 10px; font-size: 12px; color: var(--text-muted); }
 .menu-thread-item {
   width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px;
-  padding: 8px 10px; border-radius: 12px;
+  padding: 9px 11px; border-radius: 12px; border: 1px solid transparent;
 }
-.menu-thread-item:hover { background: rgba(93,232,255,0.07); }
-.menu-thread-item .mt-title { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-thread-item:hover { background: rgba(93,232,255,0.12); border-color: var(--line); }
+.menu-thread-item .mt-title { font-size: 13.5px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-thread-item .mt-meta { font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.02em; }
 
 .os-menu-tools { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 2px 0; }

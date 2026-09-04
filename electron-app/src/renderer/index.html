@@ -21,6 +21,13 @@
         <span class="brand-mark" aria-hidden="true">◉</span>
         <span class="os-menu-trigger-label">CAELUS</span>
       </button>
+      <!-- 대화/프로젝트 목록을 메뉴 두 번 클릭 없이 바로 열 수 있는 단축
+           버튼. data-panel-target을 그대로 써서(메뉴 안 "전체 프로젝트
+           보기"와 동일한 대상) renderer.js의 기존 범용 핸들러를 그대로
+           재사용한다 — 새 JS 불필요. -->
+      <button type="button" class="os-menu-quick-btn" data-panel-target="panel-projects" title="대화 목록 / 프로젝트 목록" aria-label="대화 목록 / 프로젝트 목록">
+        <span aria-hidden="true">☰</span>
+      </button>
       <div id="os-menu-list" class="os-menu-list" hidden>
         <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
           <button type="button" class="mode-btn active" data-mode="chat" role="radio" aria-checked="true">일반 대화</button>
