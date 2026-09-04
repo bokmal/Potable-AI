@@ -128,9 +128,26 @@ themeToggle.addEventListener('click', () => applyTheme(currentTheme === 'light' 
 // 자체를 없애면 그 문제들이 설계상 발생할 수 없다). 닫는 건 각 패널의
 // ✕ 버튼뿐이다 — 설정 패널도 다른 패널과 동일하게 동작한다.
 // ===================================================================
-function openPanel(panel) {
+// 패널을 연 버튼을 기억해뒀다가, 그 패널을 닫을 때(✕든 Esc든) 포커스를
+// 그 버튼으로 되돌린다 — 키보드/스크린리더 사용자가 패널을 닫은 뒤 방금
+// 누른 자리를 잃지 않게 하기 위함(§C 접근성 기본 보강).
+const panelTriggers = new WeakMap(); // panel -> 그 패널을 연 버튼
+
+function openPanel(panel, trigger) {
   if (!panel) return;
   panel.hidden = false;
+  if (trigger) panelTriggers.set(panel, trigger);
+  // 패널이 열리면 포커스를 그 안(닫기 버튼)으로 옮긴다 — 키보드 사용자가
+  // 패널이 열렸다는 걸 인지하고 바로 안에서 조작을 이어갈 수 있게.
+  const closeBtn = panel.querySelector('.floating-panel-close');
+  if (closeBtn) closeBtn.focus();
+}
+
+function closePanel(panel) {
+  if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  const trigger = panelTriggers.get(panel);
+  if (trigger && document.contains(trigger)) trigger.focus();
 }
 
 function closeOsMenu() {
@@ -144,14 +161,14 @@ osMenuToggle.addEventListener('click', (event) => {
 
 document.querySelectorAll('[data-panel-target]').forEach((btn) => {
   btn.addEventListener('click', () => {
-    openPanel(document.getElementById(btn.dataset.panelTarget));
+    openPanel(document.getElementById(btn.dataset.panelTarget), btn);
     closeOsMenu();
   });
 });
 
 settingsToggle.addEventListener('click', (event) => {
   event.stopPropagation();
-  openPanel(settingsPanel);
+  openPanel(settingsPanel, settingsToggle);
   closeOsMenu();
   loadPersonaForActiveProject();
 });
@@ -201,8 +218,7 @@ document.addEventListener('click', (event) => {
 
 document.querySelectorAll('.floating-panel [data-close-panel]').forEach((closeBtn) => {
   closeBtn.addEventListener('click', () => {
-    const panel = closeBtn.closest('.floating-panel');
-    if (panel) panel.hidden = true;
+    closePanel(closeBtn.closest('.floating-panel'));
   });
 });
 
@@ -219,7 +235,14 @@ try {
 
 function setMode(mode) {
   currentMode = mode;
-  modeButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.mode === mode));
+  modeButtons.forEach((btn) => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle('active', active);
+    // role="radio"(index.html)와 짝을 맞춰 스크린리더가 지금 선택된 모드를
+    // 알 수 있게 한다 — .active 클래스는 시각적 표시일 뿐 접근성 트리에는
+    // 안 잡힌다.
+    btn.setAttribute('aria-checked', String(active));
+  });
   try {
     localStorage.setItem('caelus-mode', mode);
   } catch {
@@ -292,12 +315,14 @@ function renderMarkdownLite(text) {
 
 // ===================================================================
 // 화면 단계(IDLE ↔ ACTIVE) — 대화가 없을 땐 AI 코어가 화면 중앙을 크게
-// 차지하고, 첫 메시지가 오가는 순간 코어가 작게 도킹되며 대화창이 그
-// 자리를 넘겨받는다. 실제 전환 애니메이션은 styles.css의
-// body[data-ui-phase] 규칙이 전담하고, 여기서는 "지금 대화 내용이 있는가"
-// 라는 단 하나의 상태만 body에 얹어준다 — addBubble/clearConversation이라는
-// 기존의 단 두 지점에서만 호출되므로 대화가 생기고 사라지는 모든 경로
-// (전송/스레드 보기/새 대화 시작/기록 삭제)에서 자동으로 같이 따라간다.
+// 차지하고, 첫 메시지가 오가는 순간 코어는 크기 그대로 왼쪽 칸으로 옮겨가고
+// 오른쪽에 대화창이 나타나는 좌우 분할 레이아웃으로 바뀐다(코어가 작아져서
+// 한쪽 구석에 작게 도킹되는 방식이 아니다). 실제 전환 애니메이션은
+// styles.css의 body[data-ui-phase] 규칙(.main의 grid-template-columns
+// 전환)이 전담하고, 여기서는 "지금 대화 내용이 있는가"라는 단 하나의 상태만
+// body에 얹어준다 — addBubble/clearConversation이라는 기존의 단 두
+// 지점에서만 호출되므로 대화가 생기고 사라지는 모든 경로(전송/스레드
+// 보기/새 대화 시작/기록 삭제)에서 자동으로 같이 따라간다.
 // ===================================================================
 function setUiPhase(phase) {
   document.body.dataset.uiPhase = phase;
@@ -474,6 +499,11 @@ function makeGroupHeader(project, threadCount) {
   const header = document.createElement('div');
   header.className = 'tree-group-header';
   header.dataset.project = project;
+  // 마우스로만 펼치기/접기가 되던 걸 키보드로도 할 수 있게(§C) — 포커스
+  // 가능한 요소로 만들고 펼침 상태를 접근성 트리에도 노출한다.
+  header.tabIndex = 0;
+  header.setAttribute('role', 'button');
+  header.setAttribute('aria-expanded', String(!collapsedGroups.has(project)));
 
   const isCollapsed = collapsedGroups.has(project);
   header.innerHTML = `
@@ -481,10 +511,10 @@ function makeGroupHeader(project, threadCount) {
     <span class="tree-group-name">${escapeHtml(projectLabel(project))}</span>
     <span class="tree-group-badge">${threadCount}</span>
     <span class="tree-group-actions">
-      <button type="button" class="tg-action tg-new" title="이 프로젝트로 새 대화 시작">&#43;</button>
+      <button type="button" class="tg-action tg-new" title="이 프로젝트로 새 대화 시작" aria-label="'${escapeHtml(projectLabel(project))}' 프로젝트로 새 대화 시작">&#43;</button>
       ${project === DEFAULT_PROJECT_NAME ? '' : `
-        <button type="button" class="tg-action tg-rename" title="이름변경">&#9998;</button>
-        <button type="button" class="tg-action tg-delete" title="삭제">&#128465;</button>
+        <button type="button" class="tg-action tg-rename" title="이름변경" aria-label="'${escapeHtml(projectLabel(project))}' 이름변경">&#9998;</button>
+        <button type="button" class="tg-action tg-delete" title="삭제" aria-label="'${escapeHtml(projectLabel(project))}' 프로젝트 삭제">&#128465;</button>
       `}
     </span>
   `;
@@ -494,6 +524,15 @@ function makeGroupHeader(project, threadCount) {
   header.addEventListener('click', (event) => {
     if (event.target.closest('.tree-group-actions')) return;
     toggleGroupCollapsed(project);
+  });
+  // 키보드로도 같은 동작(Enter/Space) — 포커스가 액션 버튼 자체에 있을 때는
+  // 그 버튼의 기본 동작(click)에 맡기고 여기서 가로채지 않는다.
+  header.addEventListener('keydown', (event) => {
+    if (event.target.closest('.tree-group-actions')) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleGroupCollapsed(project);
+    }
   });
 
   header.querySelector('.tg-new').addEventListener('click', (event) => {
@@ -594,18 +633,29 @@ function makeThreadItem(project, threadEntry) {
   li.className = 'history-item';
   li.dataset.project = project;
   li.dataset.threadKey = threadEntry.threadId || `__task_${latest.task_id}`;
+  // 마우스 전용이던 걸 키보드로도 열 수 있게(§C).
+  li.tabIndex = 0;
+  li.setAttribute('role', 'button');
   const modeLabel = MODE_LABEL[latest.mode] || latest.mode || '';
   const turns = threadTurnCount(threadEntry);
   const turnsLabel = turns > 1 ? ` · ${turns}턴` : '';
+  const title = threadDisplayTitle(threadEntry);
   li.innerHTML = `
-    <div class="h-title">${escapeHtml(threadDisplayTitle(threadEntry))}</div>
+    <div class="h-title">${escapeHtml(title)}</div>
     <div class="h-meta">${modeLabel} · ${latest.status} · ${new Date(latest.created_at).toLocaleString('ko-KR')}${turnsLabel}</div>
-    <button type="button" class="h-rename" title="제목 수정">&#9998;</button>
-    <button type="button" class="h-delete" title="삭제">&#10005;</button>
+    <button type="button" class="h-rename" title="제목 수정" aria-label="'${escapeHtml(title)}' 제목 수정">&#9998;</button>
+    <button type="button" class="h-delete" title="삭제" aria-label="'${escapeHtml(title)}' 기록 삭제">&#10005;</button>
   `;
   li.addEventListener('click', (event) => {
     if (event.target.closest('.h-delete') || event.target.closest('.h-rename')) return;
     viewThread(project, threadEntry);
+  });
+  li.addEventListener('keydown', (event) => {
+    if (event.target.closest('.h-delete') || event.target.closest('.h-rename')) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      viewThread(project, threadEntry);
+    }
   });
   li.querySelector('.h-rename').addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1180,8 +1230,11 @@ form.addEventListener('submit', async (event) => {
 });
 
 // ===================================================================
-// 단축키: Ctrl/Cmd+K로 기록 검색 포커스, Esc로 취소 또는 입력창 비우기
-// (Enter 전송은 <input>의 기본 동작이라 별도 처리 불필요)
+// 단축키: Ctrl/Cmd+K로 기록 검색 포커스, Esc로 메뉴/패널 닫기 또는 취소
+// 또는 입력창 비우기 (Enter 전송은 <input>의 기본 동작이라 별도 처리
+// 불필요). 전에는 메뉴만 Esc로 닫혔고 .floating-panel은 ✕로만 닫을 수
+// 있었는데(§C), 이제 열린 패널이 있으면 Esc로도 닫힌다 — 여러 개가 동시에
+// 열려 있으면 한 번에 전부 닫는다.
 // ===================================================================
 document.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -1189,8 +1242,11 @@ document.addEventListener('keydown', (event) => {
     historySearch.focus();
   }
   if (event.key === 'Escape') {
+    const openPanels = document.querySelectorAll('.floating-panel:not([hidden])');
     if (!osMenuList.hidden) {
       closeOsMenu();
+    } else if (openPanels.length > 0) {
+      openPanels.forEach(closePanel);
     } else if (isBusy) {
       cancelBtn.click();
     } else if (document.activeElement === input && input.value) {
@@ -1329,9 +1385,11 @@ setUiPhase('idle');
   let height = 0;
 
   // 두 코어(파란/주황)의 중심·반경. 캔버스 크기가 바뀔 때(창 크기 변경,
-  // 전체화면 전환)만 다시 계산한다 — IDLE↔ACTIVE 도킹은 #ring 자체에
-  // CSS transform:scale()이 걸리는 것뿐이라 캔버스도 그대로 같이
-  // 줄어들고, 내부 좌표계는 안 건드려도 된다.
+  // 전체화면 전환)만 다시 계산한다 — .jarvis-ring은 width/height가 고정값
+  // (styles.css)이라 IDLE↔ACTIVE 전환으로 .main의 grid 배치가 바뀌어도
+  // #ring 자신의 박스 크기는 그대로다(왼쪽 칸으로 위치만 옮겨갈 뿐, 코어가
+  // 작아지지 않는다 — 맨 위 화면 단계 설명 참고). 그래서 이 전환에는 별도
+  // resizeCanvas() 호출이 필요 없다.
   const blue = { x: 0, y: 0, r: 0 };
   const orange = { x: 0, y: 0, r: 0 };
   function layoutCores() {

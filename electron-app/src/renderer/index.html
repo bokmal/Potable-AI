@@ -23,8 +23,8 @@
       </button>
       <div id="os-menu-list" class="os-menu-list" hidden>
         <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
-          <button type="button" class="mode-btn active" data-mode="chat">일반 대화</button>
-          <button type="button" class="mode-btn" data-mode="code">코딩 작업</button>
+          <button type="button" class="mode-btn active" data-mode="chat" role="radio" aria-checked="true">일반 대화</button>
+          <button type="button" class="mode-btn" data-mode="code" role="radio" aria-checked="false">코딩 작업</button>
         </div>
 
         <button id="new-thread-btn" type="button" class="menu-new">
@@ -70,7 +70,7 @@
             <canvas class="core-canvas"></canvas>
           </div>
           <div class="core-caption">
-            <span id="status-text" class="status-text">대기 중</span>
+            <span id="status-text" class="status-text" aria-live="polite">대기 중</span>
             <strong>명령을 기다리고 있습니다</strong>
           </div>
         </div>
@@ -115,7 +115,7 @@
       <div class="floating-panel-head">
         <span>프로젝트</span>
         <span class="panel-code">MISSION CONTROL</span>
-        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
       </div>
       <div class="floating-panel-body">
         <label class="sr-only" for="history-search">대화 기록 검색</label>
@@ -124,8 +124,9 @@
         <div id="history-scroll" class="history-scroll">
           <div class="tree-section-header">
             <span class="tree-section-title">작업 프로젝트</span>
-            <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기">+</button>
+            <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기" aria-label="새 프로젝트 만들기">+</button>
           </div>
+          <label class="sr-only" for="new-project-input">새 프로젝트 이름</label>
           <input id="new-project-input" class="new-project-input" type="text"
                  placeholder="새 프로젝트 이름 입력 후 Enter" autocomplete="off" hidden />
           <div id="project-groups" class="tree-groups"></div>
@@ -145,7 +146,7 @@
       <div class="floating-panel-head">
         <span>작업 상태</span>
         <span class="panel-code">SYSTEM ACTIVITY</span>
-        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
       </div>
       <div class="floating-panel-body">
         <div class="telemetry-grid">
@@ -166,7 +167,7 @@
       <div class="floating-panel-head">
         <span>작업 공간</span>
         <span class="panel-code">LOCAL WORKSPACE</span>
-        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
       </div>
       <div class="floating-panel-body">
         <div class="file-tree" aria-hidden="true">
@@ -184,7 +185,7 @@
       <div class="floating-panel-head">
         <span>설정</span>
         <span class="panel-code">LOCAL FIRST</span>
-        <button type="button" class="floating-panel-close" data-close-panel title="닫기">✕</button>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
       </div>
       <div class="floating-panel-body">
         <button id="theme-toggle" class="settings-item" type="button">
