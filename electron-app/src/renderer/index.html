@@ -204,6 +204,25 @@
           <span id="update-status" class="settings-value"></span>
         </button>
         <div class="settings-divider"></div>
+        <div class="settings-persona">
+          <label for="persona-input" class="settings-persona-label">
+            나를 이렇게 대해줘
+            <span id="persona-project-label" class="settings-value"></span>
+          </label>
+          <textarea
+            id="persona-input"
+            class="settings-persona-input"
+            rows="4"
+            placeholder="예: 반말로 편하게 얘기해줘 / 설명은 짧게, 코드부터 먼저 보여줘"
+          ></textarea>
+          <div class="settings-persona-actions">
+            <span id="persona-status" class="settings-persona-status" aria-live="polite"></span>
+            <button id="persona-save-btn" type="button" class="text-btn">저장</button>
+          </div>
+          <p class="settings-note">이 프로젝트의 CLAUDE.md에 저장됩니다 — 대화할 때마다 다시 안 말해도 Claude가 매번 이 지시를 읽어갑니다.</p>
+        </div>
+
+        <div class="settings-divider"></div>
         <button id="clear-history-btn" class="settings-item danger" type="button">
           <span>전체 기록 삭제</span>
           <span class="settings-value">삭제</span>

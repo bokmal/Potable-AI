@@ -33,6 +33,10 @@ const osMenuToggle = document.getElementById('os-menu-toggle');
 const osMenuList = document.getElementById('os-menu-list');
 const menuRecentEl = document.getElementById('menu-recent');
 const safeQuitBtn = document.getElementById('safe-quit-btn');
+const personaInput = document.getElementById('persona-input');
+const personaProjectLabel = document.getElementById('persona-project-label');
+const personaStatus = document.getElementById('persona-status');
+const personaSaveBtn = document.getElementById('persona-save-btn');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -149,6 +153,42 @@ settingsToggle.addEventListener('click', (event) => {
   event.stopPropagation();
   openPanel(settingsPanel);
   closeOsMenu();
+  loadPersonaForActiveProject();
+});
+
+// ===================================================================
+// §G — "나를 이렇게 대해줘" 페르소나(CLAUDE.md 마커 구간) 설정. 지금
+// activeProject 기준으로 조회/저장한다 — 설정 패널을 열 때마다 그 시점의
+// activeProject 내용으로 다시 불러온다.
+// ===================================================================
+let personaLoadToken = 0;
+async function loadPersonaForActiveProject() {
+  const token = ++personaLoadToken;
+  personaProjectLabel.textContent = projectLabel(activeProject);
+  personaStatus.textContent = '불러오는 중…';
+  const text = await window.caelus.getPersona(activeProject);
+  if (token !== personaLoadToken) return; // 그 사이 패널이 다시 열렸으면 낡은 응답은 버림
+  personaInput.value = text;
+  personaStatus.textContent = '';
+}
+
+personaSaveBtn.addEventListener('click', async () => {
+  personaSaveBtn.disabled = true;
+  personaStatus.textContent = '저장 중…';
+  try {
+    await window.caelus.setPersona(activeProject, personaInput.value);
+    personaStatus.textContent = '저장됨';
+  } catch (err) {
+    personaStatus.textContent = '저장 실패';
+    alert(err.message || String(err));
+  } finally {
+    personaSaveBtn.disabled = false;
+    setTimeout(() => {
+      if (personaStatus.textContent === '저장됨' || personaStatus.textContent === '저장 실패') {
+        personaStatus.textContent = '';
+      }
+    }, 2000);
+  }
 });
 
 // 메뉴 바깥을 클릭하면 드롭다운만 닫는다 — 이미 열어둔 패널들은 그대로

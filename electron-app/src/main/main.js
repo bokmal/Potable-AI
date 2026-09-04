@@ -284,6 +284,80 @@ ipcMain.handle('caelus:delete-project', (event, name) => {
   }
 });
 
+// --- IPC: "나를 이렇게 대해줘" 페르소나 설정(§G) ---
+// Claude Code CLI는 작업 디렉터리의 CLAUDE.md를 실행마다 자동으로 읽어들이는
+// 표준 동작이 있고, CAELUS는 이미 매 요청마다 cwd를 그 프로젝트의 실제
+// 폴더(projects\<name>\)로 지정해서 claude를 실행한다(위 send-command 참고).
+// 그래서 프로젝트 폴더 안에 CLAUDE.md를 두면 "사람이 매번 다시 말하는 대신"
+// CLI가 매 실행마다 다시 읽어가는 방식으로 "기억하는 것처럼" 동작할 수
+// 있다. CLAUDE.md가 이미 사용자의 다른 용도(프로젝트 문서 등)로 존재할 수
+// 있으므로, 완전히 덮어쓰지 않고 CAELUS가 관리하는 구간만 마커 주석으로
+// 감싸 그 부분만 갱신한다.
+//
+// ⚠️ 실기기 검증 필요: 이 앱의 --print 비대화형 실행 경로에서도 CLI가 실제로
+// CLAUDE.md를 반영하는지는 아직 확인되지 않았다(문서화된 표준 동작이라는
+// 것만 확인됨) — 실기기에서 문구를 저장한 뒤 실제 대화에 반영되는지 확인
+// 필요.
+const PERSONA_START = '<!-- CAELUS PERSONA START -->';
+const PERSONA_END = '<!-- CAELUS PERSONA END -->';
+
+function personaFilePath(project) {
+  const targetProject = project || DEFAULT_PROJECT_NAME;
+  const dir = targetProject === DEFAULT_PROJECT_NAME
+    ? path.join(PROJECTS_DIR, DEFAULT_PROJECT_NAME)
+    : safeProjectPath(targetProject);
+  if (!dir) return null;
+  return path.join(dir, 'CLAUDE.md');
+}
+
+ipcMain.handle('caelus:get-persona', (event, project) => {
+  const filePath = personaFilePath(project);
+  if (!filePath || !fs.existsSync(filePath)) return '';
+  const content = fs.readFileSync(filePath, 'utf8');
+  const startIdx = content.indexOf(PERSONA_START);
+  const endIdx = content.indexOf(PERSONA_END);
+  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return '';
+  return content.slice(startIdx + PERSONA_START.length, endIdx).trim();
+});
+
+ipcMain.handle('caelus:set-persona', (event, project, text) => {
+  const filePath = personaFilePath(project);
+  if (!filePath) throw new Error('잘못된 프로젝트입니다.');
+
+  const trimmed = String(text || '').trim();
+  let content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+  const startIdx = content.indexOf(PERSONA_START);
+  const endIdx = content.indexOf(PERSONA_END);
+  const hasMarkers = startIdx !== -1 && endIdx !== -1 && endIdx > startIdx;
+
+  if (!trimmed) {
+    // 비워서 저장 = 페르소나 삭제. 마커 구간만 제거하고 그 밖의(사용자가
+    // 직접 넣어뒀을 수 있는) 내용은 그대로 둔다. 마커가 원래 없었으면
+    // 파일 자체를 새로 만들지 않는다(빈 CLAUDE.md를 만들어두지 않기 위함).
+    if (hasMarkers) {
+      const stripped = (
+        content.slice(0, startIdx) + content.slice(endIdx + PERSONA_END.length)
+      ).replace(/\n{3,}/g, '\n\n');
+      fs.writeFileSync(filePath, stripped, 'utf8');
+    }
+    return { saved: true };
+  }
+
+  const block = `${PERSONA_START}\n${trimmed}\n${PERSONA_END}`;
+  if (hasMarkers) {
+    content = content.slice(0, startIdx) + block + content.slice(endIdx + PERSONA_END.length);
+  } else if (content.trim().length > 0) {
+    content = content.replace(/\s*$/, '') + '\n\n' + block + '\n';
+  } else {
+    content = block + '\n';
+  }
+
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, content, 'utf8');
+  return { saved: true };
+});
+
 // --- IPC: 대화 스레드 연속성 ---
 ipcMain.handle('caelus:get-thread-info', (event, project) => {
   return store.getThreadInfo(project || DEFAULT_PROJECT_NAME);

@@ -351,13 +351,20 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 .mission-panel, .mini-telemetry, .activity-panel, .file-panel, .protocol-panel { padding: 14px; }
 .mission-panel { min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px; overflow: hidden; }
-.history-search, .new-project-input, .tree-inline-input, .command-input {
+.history-search, .new-project-input, .tree-inline-input, .command-input, .settings-persona-input {
   width: 100%; border: 1px solid var(--line); border-radius: 14px; background: rgba(0,0,0,0.28); color: var(--text); outline: none;
 }
 .history-search { height: 42px; padding: 0 13px; font-size: 13px; }
 .new-project-input { height: 36px; padding: 0 12px; font-size: 12px; }
 .history-search::placeholder, .command-input::placeholder, .new-project-input::placeholder { color: var(--text-faint); }
-.history-search:focus, .new-project-input:focus, .tree-inline-input:focus, .command-input:focus { border-color: var(--idle); box-shadow: 0 0 0 3px rgba(89, 231, 255, 0.08); }
+.history-search:focus, .new-project-input:focus, .tree-inline-input:focus, .command-input:focus, .settings-persona-input:focus { border-color: var(--idle); box-shadow: 0 0 0 3px rgba(89, 231, 255, 0.08); }
+
+/* §G — "나를 이렇게 대해줘" 페르소나 입력(설정 패널 안). */
+.settings-persona { display: flex; flex-direction: column; gap: 8px; }
+.settings-persona-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--text-soft); }
+.settings-persona-input { padding: 10px 12px; font-size: 12.5px; line-height: 1.5; resize: vertical; font-family: inherit; }
+.settings-persona-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.settings-persona-status { font-size: 11px; color: var(--text-muted); }
 
 .history-scroll { min-height: 0; overflow-y: auto; padding-right: 2px; }
 .history-scroll::-webkit-scrollbar, .conversation::-webkit-scrollbar { width: 8px; }

@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('caelus', {
   renameProject: (oldName, newName) => ipcRenderer.invoke('caelus:rename-project', oldName, newName),
   deleteProject: (name) => ipcRenderer.invoke('caelus:delete-project', name),
 
+  getPersona: (project) => ipcRenderer.invoke('caelus:get-persona', project),
+  setPersona: (project, text) => ipcRenderer.invoke('caelus:set-persona', project, text),
+
   getThreadInfo: (project) => ipcRenderer.invoke('caelus:get-thread-info', project),
   startNewThread: (project) => ipcRenderer.invoke('caelus:new-thread', project),
   resumeThread: (project, threadId) => ipcRenderer.invoke('caelus:resume-thread', project, threadId),
