@@ -542,6 +542,18 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
    덧씌운다(색/배경 자체는 .bubble.assistant를 그대로 물려받음). */
 .bubble.cancelled { border-style: dashed; border-color: rgba(255, 204, 102, 0.45); }
 .bubble-cancelled-badge { color: var(--warning); font-size: 10px; letter-spacing: 0.11em; }
+/* §J — Claude를 거치지 않고 로컬에서 바로 처리한 알림(예: 프로젝트 전환).
+   실제 응답과 헷갈리지 않도록 폭을 좁히고 가운데 정렬 + 옅은 스타일로
+   눈에 덜 띄게 둔다("여긴 AI가 말한 게 아니다"가 한눈에 보이게). */
+.bubble.system {
+  margin: 0 auto 14px;
+  max-width: min(520px, 82%);
+  background: rgba(93, 232, 255, 0.045);
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.bubble.system .bubble-head { justify-content: center; gap: 8px; }
 .bubble-head { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px 0; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.11em; color: var(--text-faint); text-transform: uppercase; }
 .bubble-head strong { color: var(--idle); font-size: 10px; }
 .bubble-content { position: relative; z-index: 1; padding: 9px 13px 13px; }

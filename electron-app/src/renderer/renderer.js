@@ -275,6 +275,10 @@ function setBubbleContent(contentEl, role, text) {
 function bubbleRoleLabel(role) {
   if (role === 'user') return { title: '사용자 명령', meta: 'USER COMMAND' };
   if (role === 'error') return { title: '오류', meta: 'SYSTEM ERROR' };
+  // §J — Claude를 거치지 않고 로컬에서 바로 처리한 명령(프로젝트 전환 등)
+  // 임을 시각적으로 구분하기 위한 role. 실제 응답과 헷갈리지 않도록 라벨을
+  // 다르게 둔다.
+  if (role === 'system') return { title: '시스템 알림', meta: 'LOCAL' };
   return { title: 'Claude 응답', meta: 'CAELUS RESPONSE' };
 }
 
@@ -293,7 +297,7 @@ function addBubble(role, text) {
   setBubbleContent(contentEl, role, text);
   el.appendChild(contentEl);
 
-  if (role !== 'user') {
+  if (role !== 'user' && role !== 'system') {
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
     copyBtn.className = 'bubble-copy';
@@ -1030,10 +1034,61 @@ safeQuitBtn.addEventListener('click', async () => {
   await window.caelus.quitApp();
 });
 
+// ===================================================================
+// §J — "OO 프로젝트 열어줘"류 문장을 Claude에 보내기 전에 로컬에서 먼저
+// 처리한다. claude CLI는 텍스트만 주고받는 --print 모드라 CLI의 응답이
+// CAELUS 앱 자체를 조작할 방법이 없다(도구 호출 연동 안 돼 있음) — 그래서
+// "AI가 알아듣는" 게 아니라, 입력창 문구를 렌더러가 로컬 정규식으로 먼저
+// 검사하는 방식으로 구현한다. 빠르고(Claude 호출 없이 즉시 반응), 비용도
+// 안 들고, 오작동 위험도 낮다 — 정해진 패턴 + "실제로 존재하는 프로젝트
+// 이름과 정확히 일치"할 때만 반응하고, 그 외엔 평소처럼 Claude에게 전송한다
+// (오작동으로 일반 메시지를 삼켜버리지 않도록 안전하게 폴백).
+const OPEN_PROJECT_PATTERN =
+  /^(.+?)\s*(?:프로젝트)?\s*(?:을|를)?\s*(?:열어줘|불러와줘|보여줘|전환해줘|열어|열자)\.?$/;
+
+// 문장이 "프로젝트 열기" 패턴과 일치하고, 추출한 이름이 실제 존재하는
+// 프로젝트(대소문자/공백 무시)와 맞아떨어지면 그 프로젝트 이름을, 아니면
+// null을 반환한다.
+function matchProjectSwitchCommand(text) {
+  const match = text.trim().match(OPEN_PROJECT_PATTERN);
+  if (!match) return null;
+  const rawName = match[1].trim();
+  if (!rawName) return null;
+  return projectsCache.find((name) => name.toLowerCase() === rawName.toLowerCase()) || null;
+}
+
+async function switchToProjectLocally(project) {
+  // 사이드바에서 클릭했을 때와 같은 경로(viewThread)를 재사용해 그
+  // 프로젝트의 가장 최근 스레드를 열어준다 — 없으면 그냥 새 대화 상태로.
+  const groups = buildThreadGroups(allTasksCache);
+  const threads = groups.get(project);
+  if (threads && threads.size > 0) {
+    const latestEntry = [...threads.values()].sort(
+      (a, b) => new Date(threadLatestTask(b).created_at) - new Date(threadLatestTask(a).created_at)
+    )[0];
+    await viewThread(project, latestEntry);
+  } else {
+    activeProject = project;
+    clearConversation();
+    viewingThread = null;
+    hideResumeBanner();
+  }
+  refreshThreadStatus();
+  // 실제 Claude 응답이 아니라 로컬 처리라는 걸 시각적으로 구분해서 보여준다.
+  addBubble('system', `✅ '${projectLabel(project)}' 프로젝트로 전환했습니다.`);
+}
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = input.value.trim();
   if (!text || isBusy) return;
+
+  const switchTarget = matchProjectSwitchCommand(text);
+  if (switchTarget) {
+    input.value = '';
+    await switchToProjectLocally(switchTarget);
+    return;
+  }
 
   // 지금 화면에 과거 기록(다른 스레드, 또는 activeProject의 지금 활성
   // 스레드가 아닌 것)을 보고 있었다면, 새 메시지는 activeProject의 활성
