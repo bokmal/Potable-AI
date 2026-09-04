@@ -803,6 +803,11 @@ resumeThreadBtn.addEventListener('click', async () => {
 historySearch.addEventListener('input', renderHistoryTree);
 
 clearHistoryBtn.addEventListener('click', async () => {
+  // tg-rename/tg-delete/h-delete와 같은 이유 — 전송 중에 전체 기록을
+  // 지우면, 진행 중이던 요청이 끝나면서 store.setActiveThread가 방금
+  // clearAll()로 지운 activeThreads를 되살릴 수 있다("지웠는데도
+  // 기억한다" 경쟁 상태).
+  if (isBusy) return;
   if (!confirm('작업 기록을 전부 삭제할까요? 되돌릴 수 없습니다.')) return;
   await window.caelus.clearHistory();
   clearConversation();

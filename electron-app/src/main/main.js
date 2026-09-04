@@ -137,6 +137,21 @@ ipcMain.handle('caelus:list-projects', () => {
   }
 });
 
+// 폴더 이름 하나가 PROJECTS_DIR 바로 아래의 안전한 경로로 귀결되는지만
+// 검사한다(경로 구분자/".."로 바깥으로 못 나가게, Windows 금지 문자도
+// 같이 거름). "이미 있는 폴더"/"general은 예약어" 같은 상황별 규칙은 이
+// 함수 밖에서 따로 처리한다 — create/rename-project처럼 "general"을
+// 막아야 하는 호출부와, send-command처럼 "general"도 정상값으로 취급해야
+// 하는 호출부가 이 안전성 검사 하나를 같이 쓴다.
+function safeProjectPath(trimmed) {
+  if (/[\\/:*?"<>|]/.test(trimmed) || trimmed === '.' || trimmed === '..') return null;
+  const target = path.join(PROJECTS_DIR, trimmed);
+  // 위 필터를 통과하더라도 이중으로 확인한다 — 결과 경로가 반드시
+  // PROJECTS_DIR 바로 아래여야 한다.
+  if (path.dirname(target) !== PROJECTS_DIR) return null;
+  return target;
+}
+
 // 프로젝트(폴더) 이름 하나가 새로 만들거나(생성) 바꾸려는(이름변경) 이름으로
 // 유효한지 검사한다. create-project/rename-project가 공유한다.
 // existingTarget: 검사 대상 자기 자신의 현재 경로(이름변경 시, "이미 있는
@@ -145,8 +160,6 @@ function validateProjectName(trimmed, { existingTarget } = {}) {
   if (!trimmed) {
     return { ok: false, reason: '이름을 입력해주세요.' };
   }
-  // 경로 구분자나 ".."이 들어오면 projects\ 바깥에 폴더를 만들 수 있게 되므로
-  // 막는다. Windows에서 파일/폴더 이름에 못 쓰는 문자도 같이 걸러낸다.
   if (/[\\/:*?"<>|]/.test(trimmed) || trimmed === '.' || trimmed === '..') {
     return { ok: false, reason: '폴더 이름에 \\ / : * ? " < > | 는 쓸 수 없습니다.' };
   }
@@ -154,10 +167,8 @@ function validateProjectName(trimmed, { existingTarget } = {}) {
     return { ok: false, reason: `'${DEFAULT_PROJECT_NAME}'은(는) 일반 작업용으로 예약된 이름입니다.` };
   }
 
-  const target = path.join(PROJECTS_DIR, trimmed);
-  // 위 필터를 통과하더라도 이중으로 확인한다 — 결과 경로가 반드시
-  // PROJECTS_DIR 바로 아래여야 한다.
-  if (path.dirname(target) !== PROJECTS_DIR) {
+  const target = safeProjectPath(trimmed);
+  if (!target) {
     return { ok: false, reason: '잘못된 이름입니다.' };
   }
   if (fs.existsSync(target) && target !== existingTarget) {
@@ -330,8 +341,24 @@ ipcMain.handle('caelus:cancel-command', (event, taskId) => {
 // cwd로 쓰지 않는다(예전엔 그렇게 했었는데, 그러면 프로젝트로 묶이지 않은
 // 파일들이 루트에 바로 쌓여서 지저분해진다는 문제가 있었다).
 ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => {
+  // 렌더러가 isBusy로 "한 번에 하나만" 보내도록 막고 있지만, 방어적으로
+  // 메인 프로세스 쪽에서도 재진입을 막는다 — 안 막으면 두 번째 호출이
+  // activeChild/activeTaskId를 덮어써서 취소 버튼이 엉뚱한 프로세스를
+  // 가리키게 되고, 두 요청의 store 기록이 서로 뒤섞일 수 있다.
+  if (activeChild) {
+    throw new Error('이미 처리 중인 요청이 있습니다. 완료된 뒤 다시 시도해주세요.');
+  }
+
   const targetProject = projectName || DEFAULT_PROJECT_NAME;
-  const cwd = path.join(PROJECTS_DIR, targetProject);
+  // create/rename-project처럼 여기서도 같은 안전성 검사를 거친다 — 지금은
+  // 렌더러가 항상 검증된 프로젝트 이름만 넘기지만(그 외 값이 들어올 통로가
+  // 없지만), 메인 프로세스 스스로도 이 경계를 지켜야 방어 종심이 된다.
+  const cwd = targetProject === DEFAULT_PROJECT_NAME
+    ? path.join(PROJECTS_DIR, DEFAULT_PROJECT_NAME)
+    : safeProjectPath(targetProject);
+  if (!cwd) {
+    throw new Error('잘못된 프로젝트입니다.');
+  }
   if (!fs.existsSync(cwd)) {
     fs.mkdirSync(cwd, { recursive: true });
   }
