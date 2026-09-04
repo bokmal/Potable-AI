@@ -2327,3 +2327,441 @@ setUiPhase('idle');
   if (reduceMotion) drawStatic(readState());
   requestAnimationFrame(frame);
 })();
+
+// ===================================================================
+// CAELUS Particle Core Visualizer
+// 시각 효과 전용 코드입니다.
+// 기존 Claude Code, IPC, 저장, 프로젝트, 대화 전송 로직은 건드리지 않습니다.
+// ===================================================================
+(function initCaelusParticleCore() {
+  const ringEl = document.getElementById("ring");
+  const canvas = document.getElementById("particle-core-canvas");
+
+  if (!ringEl || !canvas || canvas.dataset.caelusParticleReady === "1") return;
+
+  canvas.dataset.caelusParticleReady = "1";
+
+  const ctx = canvas.getContext("2d", { alpha: true });
+  if (!ctx) return;
+
+  const reduceMotion = window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
+  const BLUE = {
+    dot: "rgba(107, 238, 255, ",
+    hot: "rgba(190, 252, 255, ",
+    glow: "rgba(79, 214, 255, ",
+  };
+
+  const ORANGE = {
+    dot: "rgba(255, 157, 74, ",
+    hot: "rgba(255, 205, 123, ",
+    error: "rgba(255, 92, 112, ",
+    glow: "rgba(255, 139, 74, ",
+  };
+
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
+  let time = 0;
+  let rafId = 0;
+  let lastState = "idle";
+  let responsePulse = 0;
+  let resizeObserver = null;
+
+  const coreParticles = [];
+  const streamParticles = [];
+  const dustParticles = [];
+
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function rgba(base, alpha) {
+    return base + clamp(alpha, 0, 1) + ")";
+  }
+
+  function currentState() {
+    if (ringEl.classList.contains("error")) return "error";
+    if (ringEl.classList.contains("cancelled")) return "cancelled";
+    if (ringEl.classList.contains("response")) return "response";
+    if (ringEl.classList.contains("listening")) return "listening";
+    return "idle";
+  }
+
+  function makeCoreParticle(group) {
+    const blue = group === "blue";
+
+    return {
+      group,
+      angle: rand(0, Math.PI * 2),
+      radius: blue ? rand(14, 150) : rand(8, 90),
+      orbitSpeed: blue ? rand(0.45, 1.25) : rand(0.65, 1.75),
+      size: blue ? rand(0.72, 2.15) : rand(0.62, 1.9),
+      alpha: blue ? rand(0.26, 0.92) : rand(0.22, 0.82),
+      phase: rand(0, Math.PI * 2),
+      wobble: rand(0.55, 2.65),
+      drift: rand(-0.0012, 0.0012),
+      spark: Math.random() > (blue ? 0.88 : 0.80),
+    };
+  }
+
+  function makeStreamParticle() {
+    return {
+      k: Math.random(),
+      speed: rand(0.0018, 0.008),
+      size: rand(0.55, 1.7),
+      offset: rand(-22, 22),
+      phase: rand(0, Math.PI * 2),
+      alpha: rand(0.18, 0.86),
+    };
+  }
+
+  function makeDustParticle() {
+    return {
+      x: Math.random(),
+      y: Math.random(),
+      speed: rand(0.00015, 0.0008),
+      size: rand(0.45, 1.2),
+      alpha: rand(0.045, 0.18),
+      phase: rand(0, Math.PI * 2),
+    };
+  }
+
+  function seedParticles() {
+    coreParticles.length = 0;
+    streamParticles.length = 0;
+    dustParticles.length = 0;
+
+    for (let i = 0; i < 320; i += 1) {
+      coreParticles.push(makeCoreParticle("blue"));
+    }
+
+    for (let i = 0; i < 190; i += 1) {
+      coreParticles.push(makeCoreParticle("orange"));
+    }
+
+    for (let i = 0; i < 130; i += 1) {
+      streamParticles.push(makeStreamParticle());
+    }
+
+    for (let i = 0; i < 90; i += 1) {
+      dustParticles.push(makeDustParticle());
+    }
+  }
+
+  function resize() {
+    const rect = ringEl.getBoundingClientRect();
+
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = Math.max(260, Math.floor(rect.width));
+    height = Math.max(170, Math.floor(rect.height));
+
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawPoint(x, y, radius, colorBase, alpha, bloom) {
+    const a = clamp(alpha, 0, 1);
+
+    if (bloom) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, radius * 7.5);
+      g.addColorStop(0, rgba(colorBase, a * 0.38));
+      g.addColorStop(0.38, rgba(colorBase, a * 0.10));
+      g.addColorStop(1, rgba(colorBase, 0));
+
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 7.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = rgba(colorBase, a);
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawGlow(cx, cy, radius, colorBase, alpha) {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    g.addColorStop(0, rgba(colorBase, alpha));
+    g.addColorStop(0.42, rgba(colorBase, alpha * 0.20));
+    g.addColorStop(1, rgba(colorBase, 0));
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawMinimalArc(cx, cy, radius, start, end, colorBase, alpha) {
+    ctx.strokeStyle = rgba(colorBase, alpha);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, start, end);
+    ctx.stroke();
+  }
+
+  function render() {
+    const state = currentState();
+
+    if (state !== lastState) {
+      if (state === "response") responsePulse = 1;
+      lastState = state;
+    }
+
+    const active = state === "listening";
+    const error = state === "error";
+    const cancelled = state === "cancelled";
+    const response = state === "response";
+
+    const speed = reduceMotion
+      ? 0.18
+      : active
+        ? 2.75
+        : error
+          ? 2.1
+          : cancelled
+            ? 0.42
+            : response
+              ? 1.1
+              : 0.72;
+
+    const linkPower = active ? 1.0 : error ? 0.78 : response ? 0.4 : cancelled ? 0.08 : 0.16;
+    const coreBoost = active ? 0.18 : response ? 0.08 : 0;
+    const orangeBoost = error ? 0.26 : active ? 0.12 : cancelled ? 0.08 : 0;
+
+    time += 0.0105 * speed;
+    responsePulse = Math.max(0, responsePulse - 0.018);
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.globalCompositeOperation = "lighter";
+
+    const blueCenter = {
+      x: width * (width < 520 ? 0.60 : 0.62),
+      y: height * 0.46,
+    };
+
+    const orangeCenter = {
+      x: width * (width < 520 ? 0.36 : 0.35),
+      y: height * 0.47,
+    };
+
+    const scale = Math.min(width / 760, height / 330);
+    const blueRadius = 176 * scale;
+    const orangeRadius = 106 * scale;
+
+    drawGlow(
+      blueCenter.x,
+      blueCenter.y,
+      blueRadius * 1.34,
+      BLUE.glow,
+      active ? 0.19 : 0.13
+    );
+
+    drawGlow(
+      blueCenter.x,
+      blueCenter.y,
+      blueRadius * 0.55,
+      BLUE.hot,
+      active ? 0.12 : 0.08
+    );
+
+    drawGlow(
+      orangeCenter.x,
+      orangeCenter.y,
+      orangeRadius * 1.45,
+      error ? ORANGE.error : ORANGE.glow,
+      error ? 0.20 : cancelled ? 0.08 : 0.12
+    );
+
+    for (const p of dustParticles) {
+      p.x += p.speed * speed * 0.24;
+      if (p.x > 1.03) p.x = -0.03;
+
+      const x = p.x * width;
+      const y = p.y * height + Math.sin(time * 0.7 + p.phase) * 5;
+
+      drawPoint(x, y, p.size, BLUE.dot, p.alpha, false);
+    }
+
+    for (const s of streamParticles) {
+      const streamSpeed = s.speed * (active ? 3.0 : error ? 2.2 : response ? 1.25 : 0.55);
+      s.k = (s.k + streamSpeed) % 1;
+
+      const k = s.k;
+      const bend = Math.sin(k * Math.PI);
+      const wave =
+        Math.sin(k * Math.PI * 2 + time * 4.4 + s.phase) *
+        (20 * scale + (active ? 6 : 0));
+
+      const x = orangeCenter.x + (blueCenter.x - orangeCenter.x) * k;
+      const y =
+        orangeCenter.y +
+        (blueCenter.y - orangeCenter.y) * k +
+        wave +
+        s.offset * bend * scale;
+
+      const colorBase = k < 0.48 ? (error ? ORANGE.error : ORANGE.dot) : BLUE.dot;
+      const fade = 0.14 + Math.sin(k * Math.PI) * 0.76;
+
+      drawPoint(
+        x,
+        y,
+        s.size * (active ? 1.28 : 1.0),
+        colorBase,
+        s.alpha * fade * linkPower,
+        active && s.alpha > 0.52
+      );
+    }
+
+    for (const p of coreParticles) {
+      const blue = p.group === "blue";
+      const center = blue ? blueCenter : orangeCenter;
+      const groupScale = blue ? scale : scale * 0.96;
+
+      const dir = blue ? 1 : -1;
+      p.angle += dir * (0.00155 + p.orbitSpeed * 0.00125) * speed + p.drift;
+
+      const rx = blue ? 1.16 : 1.32;
+      const ry = blue ? 0.80 : 0.70;
+
+      const breathe = Math.sin(time * p.wobble + p.phase) * (blue ? 9 : 14) * groupScale;
+      const turbulence =
+        Math.sin(time * 2.6 + p.phase) *
+        (active ? (blue ? 9 : 14) : 2) *
+        groupScale;
+
+      const errorJitter =
+        error && !blue ? Math.sin(time * 8 + p.phase) * 10 * groupScale : 0;
+
+      const pulsePush =
+        responsePulse * Math.sin(p.phase + time) * (blue ? 34 : 5) * groupScale;
+
+      const r = p.radius * groupScale + breathe + turbulence + errorJitter + pulsePush;
+
+      const x =
+        center.x +
+        Math.cos(p.angle) * r * rx +
+        Math.sin(time * 1.2 + p.phase) * (blue ? 3 : 8) * groupScale;
+
+      const y =
+        center.y +
+        Math.sin(p.angle) * r * ry +
+        Math.cos(time * 1.1 + p.phase) * (blue ? 3 : 8) * groupScale;
+
+      const coreDistance = clamp(1 - p.radius / (blue ? 170 : 105), 0, 1);
+
+      const alpha =
+        p.alpha +
+        (blue ? coreBoost : orangeBoost) +
+        coreDistance * (blue ? 0.12 : 0.08) +
+        (p.spark && (active || error)
+          ? 0.2 * Math.abs(Math.sin(time * 5 + p.phase))
+          : 0);
+
+      const base = blue
+        ? p.spark
+          ? BLUE.hot
+          : BLUE.dot
+        : error
+          ? ORANGE.error
+          : p.spark
+            ? ORANGE.hot
+            : ORANGE.dot;
+
+      const size =
+        p.size *
+        groupScale *
+        (1 + coreDistance * 0.32 + (active && p.spark ? 0.38 : 0));
+
+      drawPoint(x, y, size, base, alpha, p.spark || coreDistance > 0.76);
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.lineCap = "round";
+
+    const arcAlpha = active ? 0.16 : error ? 0.12 : 0.065;
+
+    for (let i = 0; i < 3; i += 1) {
+      drawMinimalArc(
+        blueCenter.x,
+        blueCenter.y,
+        (70 + i * 43 + Math.sin(time + i) * 5) * scale,
+        Math.PI * (0.08 + i * 0.08),
+        Math.PI * (1.42 + i * 0.04),
+        BLUE.dot,
+        arcAlpha
+      );
+    }
+
+    for (let i = 0; i < 2; i += 1) {
+      drawMinimalArc(
+        orangeCenter.x,
+        orangeCenter.y,
+        (38 + i * 30 + Math.cos(time + i) * 3) * scale,
+        Math.PI * (0.22 + i * 0.12),
+        Math.PI * (1.20 + i * 0.12),
+        error ? ORANGE.error : ORANGE.dot,
+        error ? 0.17 : 0.075
+      );
+    }
+
+    ctx.strokeStyle = error
+      ? rgba(ORANGE.error, 0.105 * linkPower)
+      : rgba(BLUE.dot, 0.075 * linkPower);
+
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(orangeCenter.x + 50 * scale, orangeCenter.y);
+    ctx.bezierCurveTo(
+      width * 0.46,
+      height * 0.34 + Math.sin(time) * 10,
+      width * 0.50,
+      height * 0.58 + Math.cos(time) * 10,
+      blueCenter.x - 92 * scale,
+      blueCenter.y
+    );
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+
+    rafId = window.requestAnimationFrame(render);
+  }
+
+  function start() {
+    resize();
+    seedParticles();
+
+    if ("ResizeObserver" in window) {
+      resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(ringEl);
+    } else {
+      window.addEventListener("resize", resize);
+    }
+
+    rafId = window.requestAnimationFrame(render);
+  }
+
+  window.addEventListener("beforeunload", () => {
+    if (rafId) window.cancelAnimationFrame(rafId);
+
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+    } else {
+      window.removeEventListener("resize", resize);
+    }
+  });
+
+  start();
+})();

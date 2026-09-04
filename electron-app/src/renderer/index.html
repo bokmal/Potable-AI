@@ -86,7 +86,12 @@
       <section class="stage" aria-label="CAELUS AI Core">
         <div class="core-zone">
           <div id="ring" class="jarvis-ring idle" aria-hidden="true">
-            <canvas class="core-canvas"></canvas>
+            <canvas id="particle-core-canvas" class="particle-core-canvas"></canvas>
+            <div class="particle-core-vignette" aria-hidden="true"></div>
+            <div class="particle-core-caption" aria-hidden="true">
+              <span class="echo-label">ECHO SIGNAL</span>
+              <span class="core-label">CAELUS CORE</span>
+            </div>
           </div>
           <div class="core-caption">
             <span id="status-text" class="status-text" aria-live="polite">대기 중</span>
