@@ -44,6 +44,9 @@
           <button type="button" class="os-menu-tool" data-panel-target="panel-workspace" title="작업 공간">
             <span class="omt-ic" aria-hidden="true">▤</span><span class="omt-label">작업공간</span>
           </button>
+          <button type="button" class="os-menu-tool" data-panel-target="panel-presets" title="프롬프트 프리셋">
+            <span class="omt-ic" aria-hidden="true">▣</span><span class="omt-label">프리셋</span>
+          </button>
           <button id="settings-toggle" type="button" class="os-menu-tool" title="설정">
             <span class="omt-ic" aria-hidden="true">⚙</span><span class="omt-label">설정</span>
           </button>
@@ -163,6 +166,10 @@
       </div>
     </div>
 
+    <!-- §I — 활성 프로젝트와 무관한 장식용 정적 목록이 아니라, 실제 프로젝트
+         폴더 구조를 보여주는 미니 파일 브라우저. 패널을 열 때(또는
+         프로젝트를 바꿀 때) main.js의 caelus:list-workspace-files로 그
+         시점 폴더 내용을 다시 불러온다. -->
     <div id="panel-workspace" class="floating-panel command-card" hidden aria-label="작업 공간">
       <div class="floating-panel-head">
         <span>작업 공간</span>
@@ -170,13 +177,34 @@
         <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
       </div>
       <div class="floating-panel-body">
-        <div class="file-tree" aria-hidden="true">
-          <div>▸ 프로젝트</div>
-          <div class="indent">├─ 현재 작업</div>
-          <div class="indent">├─ 대화 기록</div>
-          <div class="indent">└─ 코드 작업공간</div>
-          <div>▸ Claude 연결</div>
-          <div>▸ 명령 스트림</div>
+        <div id="workspace-breadcrumb" class="workspace-breadcrumb" aria-label="현재 위치"></div>
+        <div id="workspace-tree" class="file-tree" role="list"></div>
+        <div id="workspace-preview" class="workspace-preview" hidden>
+          <div class="workspace-preview-head">
+            <span id="workspace-preview-name" class="workspace-preview-name"></span>
+            <button type="button" id="workspace-preview-close" class="icon-btn small" title="미리보기 닫기" aria-label="미리보기 닫기">✕</button>
+          </div>
+          <pre id="workspace-preview-content" class="workspace-preview-content"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- §I — 자주 쓰는 프롬프트 문구를 저장해뒀다가 클릭 한 번으로 입력창에
+         채워 넣는 패널. 프로젝트 구분 없이 전역으로 공유(store.js). -->
+    <div id="panel-presets" class="floating-panel command-card" hidden aria-label="프롬프트 프리셋">
+      <div class="floating-panel-head">
+        <span>프리셋</span>
+        <span class="panel-code">PROMPT LIBRARY</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <div id="preset-list" class="preset-list"></div>
+        <div class="preset-editor">
+          <label class="sr-only" for="preset-label-input">프리셋 이름</label>
+          <input id="preset-label-input" class="new-project-input" type="text" placeholder="프리셋 이름" autocomplete="off" />
+          <label class="sr-only" for="preset-text-input">프리셋 내용</label>
+          <textarea id="preset-text-input" class="settings-persona-input" rows="3" placeholder="자주 쓰는 프롬프트 문구를 입력하세요"></textarea>
+          <button type="button" id="preset-add-btn" class="text-btn">추가</button>
         </div>
       </div>
     </div>

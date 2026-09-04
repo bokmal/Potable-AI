@@ -20,6 +20,14 @@ contextBridge.exposeInMainWorld('caelus', {
   getPersona: (project) => ipcRenderer.invoke('caelus:get-persona', project),
   setPersona: (project, text) => ipcRenderer.invoke('caelus:set-persona', project, text),
 
+  listWorkspaceFiles: (project, relPath) => ipcRenderer.invoke('caelus:list-workspace-files', project, relPath),
+  readWorkspaceFile: (project, relPath) => ipcRenderer.invoke('caelus:read-workspace-file', project, relPath),
+
+  listPresets: () => ipcRenderer.invoke('caelus:list-presets'),
+  addPreset: (label, text) => ipcRenderer.invoke('caelus:add-preset', label, text),
+  updatePreset: (id, fields) => ipcRenderer.invoke('caelus:update-preset', id, fields),
+  deletePreset: (id) => ipcRenderer.invoke('caelus:delete-preset', id),
+
   getThreadInfo: (project) => ipcRenderer.invoke('caelus:get-thread-info', project),
   startNewThread: (project) => ipcRenderer.invoke('caelus:new-thread', project),
   resumeThread: (project, threadId) => ipcRenderer.invoke('caelus:resume-thread', project, threadId),

@@ -382,6 +382,78 @@ ipcMain.handle('caelus:rename-task', (event, taskId, newTitle) => {
   return { renamed: store.renameTask(taskId, newTitle) };
 });
 
+// --- IPC: 작업공간 파일 트리(§I) ---
+// #panel-workspace를 activeProject와 무관한 장식용 정적 텍스트가 아니라
+// 실제 프로젝트 폴더 구조를 보여주는 미니 파일 브라우저로 만든다.
+function projectDir(project) {
+  const targetProject = project || DEFAULT_PROJECT_NAME;
+  return targetProject === DEFAULT_PROJECT_NAME
+    ? path.join(PROJECTS_DIR, DEFAULT_PROJECT_NAME)
+    : safeProjectPath(targetProject);
+}
+
+// relPath가 그 프로젝트 폴더 밖으로 못 나가게 막는다(../ 등으로 상위
+// 디렉터리를 벗어나는 경로 탈출 방지) — send-command의 cwd 검증과 같은
+// 이유의 방어 종심.
+function safeWorkspacePath(project, relPath) {
+  const base = projectDir(project);
+  if (!base) return null;
+  const rel = String(relPath || '').replace(/^[/\\]+/, '');
+  const target = path.join(base, rel);
+  const normalizedBase = path.normalize(base);
+  if (target !== normalizedBase && !target.startsWith(normalizedBase + path.sep)) return null;
+  return target;
+}
+
+ipcMain.handle('caelus:list-workspace-files', (event, project, relPath) => {
+  const dirPath = safeWorkspacePath(project, relPath);
+  if (!dirPath || !fs.existsSync(dirPath)) return { entries: [], path: relPath || '' };
+  let stat;
+  try {
+    stat = fs.statSync(dirPath);
+  } catch {
+    return { entries: [], path: relPath || '' };
+  }
+  if (!stat.isDirectory()) return { entries: [], path: relPath || '' };
+  const names = fs.readdirSync(dirPath, { withFileTypes: true });
+  const entries = names
+    .filter((d) => !d.name.startsWith('.')) // 숨김 파일/폴더는 목록을 어지럽히지 않게 제외
+    .map((d) => ({ name: d.name, isDir: d.isDirectory() }))
+    .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1));
+  return { entries, path: relPath || '' };
+});
+
+const WORKSPACE_PREVIEW_MAX_BYTES = 200 * 1024; // 미리보기 용도라 넉넉히 200KB까지만
+
+ipcMain.handle('caelus:read-workspace-file', (event, project, relPath) => {
+  const filePath = safeWorkspacePath(project, relPath);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return { content: '', truncated: false, error: '파일을 찾을 수 없습니다.' };
+  }
+  const stat = fs.statSync(filePath);
+  if (stat.isDirectory()) {
+    return { content: '', truncated: false, error: '폴더입니다.' };
+  }
+  if (stat.size > WORKSPACE_PREVIEW_MAX_BYTES * 4) {
+    return { content: '', truncated: false, error: '파일이 너무 커서 미리볼 수 없습니다.' };
+  }
+  const buffer = fs.readFileSync(filePath);
+  const truncated = buffer.length > WORKSPACE_PREVIEW_MAX_BYTES;
+  const slice = truncated ? buffer.subarray(0, WORKSPACE_PREVIEW_MAX_BYTES) : buffer;
+  // 텍스트인지 이진 파일인지 간단히 판별한다(null 바이트 포함 여부) — 이미지/
+  // 실행 파일 등을 텍스트로 깨뜨려 보여주지 않기 위한 최소한의 안전장치.
+  if (slice.includes(0)) {
+    return { content: '', truncated: false, error: '텍스트로 미리볼 수 없는 파일입니다(바이너리).' };
+  }
+  return { content: slice.toString('utf8'), truncated, error: null };
+});
+
+// --- IPC: 프롬프트 프리셋(§I) ---
+ipcMain.handle('caelus:list-presets', () => store.getPresets());
+ipcMain.handle('caelus:add-preset', (event, label, text) => store.addPreset(label, text));
+ipcMain.handle('caelus:update-preset', (event, id, fields) => ({ updated: store.updatePreset(id, fields) }));
+ipcMain.handle('caelus:delete-preset', (event, id) => ({ deleted: store.deletePreset(id) }));
+
 // --- IPC: 클립보드 복사 ---
 ipcMain.handle('caelus:copy-text', (event, text) => {
   clipboard.writeText(String(text ?? ''));

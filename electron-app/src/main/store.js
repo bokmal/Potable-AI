@@ -36,8 +36,9 @@ class Store {
     if (fs.existsSync(this.filePath)) {
       try {
         this.data = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-        // 구버전 저장 파일(activeThreads 필드가 생기기 전)과의 하위호환.
+        // 구버전 저장 파일(activeThreads/presets 필드가 생기기 전)과의 하위호환.
         if (!this.data.activeThreads) this.data.activeThreads = {};
+        if (!this.data.presets) this.data.presets = [];
         return;
       } catch (err) {
         // 파일이 깨져 있어도(예: USB가 저장 도중 뽑힘) 조용히 버리지 않는다.
@@ -71,6 +72,9 @@ class Store {
       // { [projectName]: claudeSessionUuid }. 옛 파일에는 이 필드가 없을 수
       // 있으므로 _load()에서 읽은 직후 항상 존재를 보장한다(아래 참고).
       activeThreads: {},
+      // 사용자가 직접 만든 자주 쓰는 프롬프트 문구(§I 프리셋 관리 패널).
+      // 프로젝트 구분 없이 전역으로 공유한다 — { id, label, text }[].
+      presets: [],
     };
   }
 
@@ -212,6 +216,42 @@ class Store {
     // 세션을 시작하므로 사용자 입장에선 기억이 사라진 것과 동일하다).
     this.data.activeThreads = {};
     this._save();
+  }
+
+  // --- 프롬프트 프리셋(§I) ---
+  getPresets() {
+    return this.data.presets;
+  }
+
+  addPreset(label, text) {
+    const preset = {
+      id: crypto.randomUUID(),
+      label: String(label || '').trim() || '제목 없음',
+      text: String(text || ''),
+    };
+    this.data.presets.push(preset);
+    this._save();
+    return preset;
+  }
+
+  updatePreset(id, { label, text } = {}) {
+    const preset = this.data.presets.find((p) => p.id === id);
+    if (!preset) return false;
+    if (label !== undefined) {
+      const trimmed = String(label).trim();
+      if (trimmed) preset.label = trimmed;
+    }
+    if (text !== undefined) preset.text = String(text);
+    this._save();
+    return true;
+  }
+
+  deletePreset(id) {
+    const before = this.data.presets.length;
+    this.data.presets = this.data.presets.filter((p) => p.id !== id);
+    const deleted = this.data.presets.length !== before;
+    if (deleted) this._save();
+    return deleted;
   }
 
   // 사용량(%) 위젯은 로컬 추정치 대신 실제 Claude 계정 사용량 페이지로

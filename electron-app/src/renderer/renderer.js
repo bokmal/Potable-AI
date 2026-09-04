@@ -37,6 +37,16 @@ const personaInput = document.getElementById('persona-input');
 const personaProjectLabel = document.getElementById('persona-project-label');
 const personaStatus = document.getElementById('persona-status');
 const personaSaveBtn = document.getElementById('persona-save-btn');
+const workspaceBreadcrumbEl = document.getElementById('workspace-breadcrumb');
+const workspaceTreeEl = document.getElementById('workspace-tree');
+const workspacePreviewEl = document.getElementById('workspace-preview');
+const workspacePreviewNameEl = document.getElementById('workspace-preview-name');
+const workspacePreviewContentEl = document.getElementById('workspace-preview-content');
+const workspacePreviewCloseBtn = document.getElementById('workspace-preview-close');
+const presetListEl = document.getElementById('preset-list');
+const presetLabelInput = document.getElementById('preset-label-input');
+const presetTextInput = document.getElementById('preset-text-input');
+const presetAddBtn = document.getElementById('preset-add-btn');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -161,8 +171,13 @@ osMenuToggle.addEventListener('click', (event) => {
 
 document.querySelectorAll('[data-panel-target]').forEach((btn) => {
   btn.addEventListener('click', () => {
-    openPanel(document.getElementById(btn.dataset.panelTarget), btn);
+    const target = btn.dataset.panelTarget;
+    openPanel(document.getElementById(target), btn);
     closeOsMenu();
+    // §I — 이 두 패널은 열 때마다 최신 내용을 다시 불러온다(작업공간은
+    // activeProject 폴더 구조, 프리셋은 저장된 목록).
+    if (target === 'panel-workspace') loadWorkspaceTree('');
+    if (target === 'panel-presets') loadPresets();
   });
 });
 
@@ -206,6 +221,171 @@ personaSaveBtn.addEventListener('click', async () => {
       }
     }, 2000);
   }
+});
+
+// ===================================================================
+// §I — 작업공간 패널을 실제 프로젝트 폴더 파일 트리로. 패널을 열 때(또는
+// 프로젝트를 바꿔서 열 때) 그 프로젝트 폴더 내용을 보여주는 미니 파일
+// 브라우저다 — 폴더를 클릭하면 안으로 들어가고(브레드크럼으로 위로 이동),
+// 파일을 클릭하면 내용을 미리 본다.
+// ===================================================================
+let workspaceProject = null; // 지금 트리가 보여주고 있는 프로젝트(낡은 응답 감지용)
+let workspacePath = ''; // 그 프로젝트 폴더 기준 상대 경로("" = 루트)
+
+function renderWorkspaceBreadcrumb() {
+  workspaceBreadcrumbEl.innerHTML = '';
+  const rootBtn = document.createElement('button');
+  rootBtn.type = 'button';
+  rootBtn.className = 'workspace-crumb';
+  rootBtn.textContent = projectLabel(activeProject);
+  rootBtn.addEventListener('click', () => loadWorkspaceTree(''));
+  workspaceBreadcrumbEl.appendChild(rootBtn);
+
+  const segments = workspacePath ? workspacePath.split('/').filter(Boolean) : [];
+  let acc = '';
+  segments.forEach((seg) => {
+    acc = acc ? `${acc}/${seg}` : seg;
+    const targetPath = acc;
+    const sep = document.createElement('span');
+    sep.className = 'workspace-crumb-sep';
+    sep.setAttribute('aria-hidden', 'true');
+    sep.textContent = '/';
+    workspaceBreadcrumbEl.appendChild(sep);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'workspace-crumb';
+    btn.textContent = seg;
+    btn.addEventListener('click', () => loadWorkspaceTree(targetPath));
+    workspaceBreadcrumbEl.appendChild(btn);
+  });
+}
+
+function hideWorkspacePreview() {
+  workspacePreviewEl.hidden = true;
+  workspacePreviewContentEl.textContent = '';
+}
+
+async function previewWorkspaceFile(relPath, name) {
+  workspacePreviewEl.hidden = false;
+  workspacePreviewNameEl.textContent = name;
+  workspacePreviewContentEl.textContent = '불러오는 중…';
+  const result = await window.caelus.readWorkspaceFile(activeProject, relPath);
+  if (result.error) {
+    workspacePreviewContentEl.textContent = result.error;
+    return;
+  }
+  workspacePreviewContentEl.textContent =
+    result.content + (result.truncated ? '\n\n… (파일이 커서 앞부분만 표시됨)' : '');
+}
+
+async function loadWorkspaceTree(relPath) {
+  workspacePath = relPath || '';
+  workspaceProject = activeProject;
+  hideWorkspacePreview();
+  renderWorkspaceBreadcrumb();
+  workspaceTreeEl.innerHTML = '<div class="menu-recent-empty">불러오는 중…</div>';
+  const result = await window.caelus.listWorkspaceFiles(activeProject, workspacePath);
+  // 응답을 기다리는 사이 프로젝트가 바뀌었으면(다른 항목 클릭 등) 낡은
+  // 목록으로 화면을 덮어쓰지 않는다.
+  if (workspaceProject !== activeProject) return;
+  workspaceTreeEl.innerHTML = '';
+  if (result.entries.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'menu-recent-empty';
+    empty.textContent = '비어 있는 폴더입니다.';
+    workspaceTreeEl.appendChild(empty);
+    return;
+  }
+  result.entries.forEach((entry) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'workspace-entry';
+    row.setAttribute('role', 'listitem');
+    row.innerHTML = `<span aria-hidden="true">${entry.isDir ? '📁' : '📄'}</span><span>${escapeHtml(entry.name)}</span>`;
+    row.addEventListener('click', () => {
+      const nextPath = workspacePath ? `${workspacePath}/${entry.name}` : entry.name;
+      if (entry.isDir) loadWorkspaceTree(nextPath);
+      else previewWorkspaceFile(nextPath, entry.name);
+    });
+    workspaceTreeEl.appendChild(row);
+  });
+}
+
+workspacePreviewCloseBtn.addEventListener('click', hideWorkspacePreview);
+
+// ===================================================================
+// §I — 프롬프트 프리셋 관리 패널. 자주 쓰는 문구를 저장해뒀다가 클릭 한
+// 번으로 입력창에 채워 넣는다. 프로젝트 구분 없이 전역으로 공유(store.js).
+// ===================================================================
+let presetsCache = [];
+let editingPresetId = null; // 지금 편집 중인 프리셋 id(없으면 "새로 추가" 상태)
+
+function resetPresetEditor() {
+  editingPresetId = null;
+  presetLabelInput.value = '';
+  presetTextInput.value = '';
+  presetAddBtn.textContent = '추가';
+}
+
+function renderPresetList() {
+  presetListEl.innerHTML = '';
+  if (presetsCache.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'menu-recent-empty';
+    empty.textContent = '아직 저장된 프리셋이 없습니다.';
+    presetListEl.appendChild(empty);
+    return;
+  }
+  presetsCache.forEach((preset) => {
+    const row = document.createElement('div');
+    row.className = 'preset-row';
+    row.innerHTML = `
+      <button type="button" class="preset-use" title="입력창에 채우기">${escapeHtml(preset.label)}</button>
+      <span class="preset-row-actions">
+        <button type="button" class="tg-action preset-edit" title="편집" aria-label="'${escapeHtml(preset.label)}' 프리셋 편집">&#9998;</button>
+        <button type="button" class="tg-action preset-delete" title="삭제" aria-label="'${escapeHtml(preset.label)}' 프리셋 삭제">&#128465;</button>
+      </span>
+    `;
+    row.querySelector('.preset-use').addEventListener('click', () => {
+      input.value = preset.text;
+      input.focus();
+    });
+    row.querySelector('.preset-edit').addEventListener('click', () => {
+      editingPresetId = preset.id;
+      presetLabelInput.value = preset.label;
+      presetTextInput.value = preset.text;
+      presetAddBtn.textContent = '저장';
+      presetLabelInput.focus();
+    });
+    row.querySelector('.preset-delete').addEventListener('click', async () => {
+      if (!confirm(`'${preset.label}' 프리셋을 삭제할까요?`)) return;
+      await window.caelus.deletePreset(preset.id);
+      if (editingPresetId === preset.id) resetPresetEditor();
+      await loadPresets();
+    });
+    presetListEl.appendChild(row);
+  });
+}
+
+async function loadPresets() {
+  presetsCache = await window.caelus.listPresets();
+  renderPresetList();
+}
+
+presetAddBtn.addEventListener('click', async () => {
+  const label = presetLabelInput.value.trim();
+  const text = presetTextInput.value.trim();
+  if (!label || !text) {
+    alert('이름과 내용을 모두 입력해주세요.');
+    return;
+  }
+  if (editingPresetId) {
+    await window.caelus.updatePreset(editingPresetId, { label, text });
+  } else {
+    await window.caelus.addPreset(label, text);
+  }
+  resetPresetEditor();
+  await loadPresets();
 });
 
 // 메뉴 바깥을 클릭하면 드롭다운만 닫는다 — 이미 열어둔 패널들은 그대로
