@@ -47,6 +47,8 @@ const presetListEl = document.getElementById('preset-list');
 const presetLabelInput = document.getElementById('preset-label-input');
 const presetTextInput = document.getElementById('preset-text-input');
 const presetAddBtn = document.getElementById('preset-add-btn');
+const favoritesSectionEl = document.getElementById('favorites-section');
+const favoritesListEl = document.getElementById('favorites-list');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -478,7 +480,7 @@ function renderMarkdownLite(text) {
   let match;
   while ((match = fenceRegex.exec(text)) !== null) {
     if (match.index > lastIndex) parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
-    parts.push({ type: 'code', content: match[2] });
+    parts.push({ type: 'code', content: match[2], lang: match[1] });
     lastIndex = fenceRegex.lastIndex;
   }
   if (lastIndex < text.length) parts.push({ type: 'text', content: text.slice(lastIndex) });
@@ -486,7 +488,16 @@ function renderMarkdownLite(text) {
   return parts
     .map((part) => {
       if (part.type === 'code') {
-        return `<pre><code>${escapeHtml(part.content)}</code></pre>`;
+        // §I — 코드 블록마다 "파일로 저장" 버튼을 붙인다. 스트리밍 중에는
+        // setBubbleContent가 매 청크마다 innerHTML을 통째로 다시 그리므로,
+        // 버튼에 직접 리스너를 매번 새로 다는 대신 conversation에 이벤트
+        // 위임(delegation)으로 한 번만 걸어둔다(아래 conversation.addEventListener 참고).
+        return (
+          `<div class="code-block">` +
+          `<button type="button" class="code-save-btn" data-lang="${escapeHtml(part.lang || '')}" title="이 코드를 프로젝트 폴더에 파일로 저장">파일로 저장</button>` +
+          `<pre><code>${escapeHtml(part.content)}</code></pre>` +
+          `</div>`
+        );
       }
       return escapeHtml(part.content).replace(/`([^`\n]+)`/g, (_, code) => `<code>${code}</code>`);
     })
@@ -589,6 +600,35 @@ async function loadHistory() {
   allTasksCache = await window.caelus.getHistory();
   renderHistoryTree();
   renderMenuRecent();
+}
+
+// ===================================================================
+// §I — 즐겨찾기(고정) 대화 스레드. store.js와 동일한 "project::threadId"
+// 문자열 키 포맷을 그대로 써서, 백엔드가 어떤 스레드를 즐겨찾기로 보는지
+// 렌더러가 별도 변환 없이 그대로 조회할 수 있게 한다.
+// ===================================================================
+let favoritesCache = new Set();
+
+function favKey(project, threadId) {
+  return `${project}::${threadId}`;
+}
+
+function isFavoriteThread(project, threadId) {
+  if (!threadId) return false;
+  return favoritesCache.has(favKey(project, threadId));
+}
+
+async function loadFavorites() {
+  const list = await window.caelus.getFavorites();
+  favoritesCache = new Set(list);
+}
+
+async function toggleFavoriteThread(project, threadId) {
+  const result = await window.caelus.toggleFavorite(project, threadId);
+  const key = favKey(project, threadId);
+  if (result.favorited) favoritesCache.add(key);
+  else favoritesCache.delete(key);
+  renderHistoryTree(); // 별 아이콘 상태 + 즐겨찾기 섹션을 함께 다시 그림
 }
 
 // task.project가 지금 존재하는 프로젝트 폴더 목록에 없으면(프로젝트 삭제 후
@@ -820,23 +860,36 @@ function makeThreadItem(project, threadEntry) {
   const turns = threadTurnCount(threadEntry);
   const turnsLabel = turns > 1 ? ` · ${turns}턴` : '';
   const title = threadDisplayTitle(threadEntry);
+  // 즐겨찾기(§I)는 진짜 이어지는 스레드(threadId가 있는 것)에만 의미가
+  // 있다 — threadId가 없는 옛 1회성 기록은 별 버튼 자체를 안 보여준다.
+  const favStarHtml = threadEntry.threadId
+    ? `<button type="button" class="h-favorite ${isFavoriteThread(project, threadEntry.threadId) ? 'active' : ''}" title="즐겨찾기" aria-label="'${escapeHtml(title)}' 즐겨찾기 토글" aria-pressed="${isFavoriteThread(project, threadEntry.threadId)}">${isFavoriteThread(project, threadEntry.threadId) ? '&#9733;' : '&#9734;'}</button>`
+    : '';
   li.innerHTML = `
     <div class="h-title">${escapeHtml(title)}</div>
     <div class="h-meta">${modeLabel} · ${latest.status} · ${new Date(latest.created_at).toLocaleString('ko-KR')}${turnsLabel}</div>
+    ${favStarHtml}
     <button type="button" class="h-rename" title="제목 수정" aria-label="'${escapeHtml(title)}' 제목 수정">&#9998;</button>
     <button type="button" class="h-delete" title="삭제" aria-label="'${escapeHtml(title)}' 기록 삭제">&#10005;</button>
   `;
   li.addEventListener('click', (event) => {
-    if (event.target.closest('.h-delete') || event.target.closest('.h-rename')) return;
+    if (event.target.closest('.h-delete') || event.target.closest('.h-rename') || event.target.closest('.h-favorite')) return;
     viewThread(project, threadEntry);
   });
   li.addEventListener('keydown', (event) => {
-    if (event.target.closest('.h-delete') || event.target.closest('.h-rename')) return;
+    if (event.target.closest('.h-delete') || event.target.closest('.h-rename') || event.target.closest('.h-favorite')) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       viewThread(project, threadEntry);
     }
   });
+  const favBtn = li.querySelector('.h-favorite');
+  if (favBtn) {
+    favBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await toggleFavoriteThread(project, threadEntry.threadId);
+    });
+  }
   li.querySelector('.h-rename').addEventListener('click', (event) => {
     event.stopPropagation();
     startTaskRename(li, latest);
@@ -930,13 +983,23 @@ function renderGroup(container, project, threads) {
   container.appendChild(group);
 }
 
+// §I — 전문 검색. 예전엔 제목(t.title)만 대상이었는데, 실제 응답 내용
+// 안의 단어로는 못 찾는 문제가 있었다 — allTasksCache는 이미 각 task의
+// logs(응답 본문)까지 다 갖고 있으므로(main.js의 caelus:get-history가
+// store.getTasks()를 그대로 돌려줌) 그 안까지 검색 대상을 넓힌다.
+function taskMatchesQuery(task, query) {
+  if (task.title.toLowerCase().includes(query)) return true;
+  return (task.logs || []).some((log) => log.content.toLowerCase().includes(query));
+}
+
 function renderSearchResults(query) {
   searchResultsEl.hidden = false;
   document.querySelectorAll('.tree-section-header').forEach((h) => (h.hidden = true));
+  favoritesSectionEl.hidden = true;
   projectGroupsEl.hidden = true;
   generalGroupsEl.hidden = true;
 
-  const filtered = allTasksCache.filter((t) => t.title.toLowerCase().includes(query));
+  const filtered = allTasksCache.filter((t) => taskMatchesQuery(t, query));
   searchResultsEl.innerHTML = '';
   historyEmpty.hidden = filtered.length > 0;
 
@@ -957,6 +1020,32 @@ function renderSearchResults(query) {
     });
 }
 
+// §I — 즐겨찾기한 스레드를 프로젝트 구분 없이 한 곳에 모아 맨 위에
+// 보여준다(검색 결과와 같은 평평한 목록 + 프로젝트 태그 패턴 재사용).
+// 즐겨찾기가 하나도 없으면 섹션 자체를 숨긴다.
+function renderFavoritesSection() {
+  const groups = buildThreadGroups(allTasksCache);
+  const flatThreads = [];
+  groups.forEach((threads, project) => {
+    threads.forEach((entry) => {
+      if (isFavoriteThread(project, entry.threadId)) flatThreads.push({ project, entry });
+    });
+  });
+
+  favoritesListEl.innerHTML = '';
+  favoritesSectionEl.hidden = flatThreads.length === 0;
+  flatThreads
+    .sort((a, b) => new Date(threadLatestTask(b.entry).created_at) - new Date(threadLatestTask(a.entry).created_at))
+    .forEach(({ project, entry }) => {
+      const li = makeThreadItem(project, entry);
+      const tag = document.createElement('span');
+      tag.className = 'h-project-tag';
+      tag.textContent = projectLabel(project);
+      li.querySelector('.h-meta').prepend(tag);
+      favoritesListEl.appendChild(li);
+    });
+}
+
 function renderHistoryTree() {
   const query = historySearch.value.trim().toLowerCase();
 
@@ -969,6 +1058,7 @@ function renderHistoryTree() {
   document.querySelectorAll('.tree-section-header').forEach((h) => (h.hidden = false));
   projectGroupsEl.hidden = false;
   generalGroupsEl.hidden = false;
+  renderFavoritesSection();
 
   projectGroupsEl.innerHTML = '';
   generalGroupsEl.innerHTML = '';
@@ -1272,6 +1362,81 @@ cancelBtn.addEventListener('click', async () => {
 });
 
 // ===================================================================
+// §I — 파일 첨부(드래그 앤 드롭). 창 어디에든(대화창이 비어있는 idle
+// 상태에서도 동작해야 하므로 document.body 전체를) 파일을 끌어다 놓으면
+// activeProject 폴더로 복사하고, 입력창에 그 경로를 적어 넣는다.
+// ===================================================================
+['dragenter', 'dragover'].forEach((eventName) => {
+  document.body.addEventListener(eventName, (event) => {
+    // 파일이 아니라 텍스트/링크 등을 끄는 중이면(예: 다른 앱에서 문장을
+    // 드래그) 반응하지 않는다 — 순수 파일 드롭만 대상으로 한다.
+    if (!event.dataTransfer || !Array.from(event.dataTransfer.types || []).includes('Files')) return;
+    event.preventDefault();
+    document.body.classList.add('drag-over');
+  });
+});
+
+['dragleave', 'drop'].forEach((eventName) => {
+  document.body.addEventListener(eventName, (event) => {
+    if (eventName === 'dragleave' && event.target !== document.body) return;
+    document.body.classList.remove('drag-over');
+  });
+});
+
+document.body.addEventListener('drop', async (event) => {
+  const files = Array.from((event.dataTransfer && event.dataTransfer.files) || []);
+  if (files.length === 0) return;
+  event.preventDefault();
+
+  const imported = [];
+  for (const file of files) {
+    // Electron은 네이티브 OS 드래그로 들어온 File 객체에 실제 디스크 경로를
+    // .path로 얹어준다(contextIsolation과 무관하게 동작하는 Electron 고유
+    // 확장) — 그게 없으면(웹 컨텍스트 등 예외적 경우) 조용히 건너뛴다.
+    if (!file.path) continue;
+    const result = await window.caelus.importFile(activeProject, file.path);
+    if (result.imported) {
+      imported.push(result.relativePath);
+    } else {
+      alert(`'${file.name}' 첨부 실패: ${result.reason || '알 수 없는 오류'}`);
+    }
+  }
+  if (imported.length > 0) {
+    const mention = imported.map((p) => `[첨부파일: ${p}]`).join(' ');
+    input.value = input.value ? `${input.value} ${mention}` : mention;
+    input.focus();
+  }
+});
+
+// §I — 코드 블록 "파일로 저장" 버튼. 스트리밍 중 setBubbleContent가 매
+// 청크마다 .bubble-content의 innerHTML을 통째로 새로 그리기 때문에, 버튼
+// 각각에 리스너를 직접 달면 스트리밍 도중 만들어진 코드 블록은 리스너가
+// 못 붙는다 — conversation 하나에 이벤트 위임으로 걸어서 이 문제를 피한다.
+conversation.addEventListener('click', async (event) => {
+  const saveBtn = event.target.closest('.code-save-btn');
+  if (!saveBtn) return;
+  const codeEl = saveBtn.parentElement.querySelector('code');
+  if (!codeEl) return;
+
+  saveBtn.disabled = true;
+  const originalLabel = '파일로 저장';
+  try {
+    const result = await window.caelus.saveCodeSnippet(activeProject, saveBtn.dataset.lang, codeEl.textContent);
+    if (result.saved) {
+      saveBtn.textContent = `저장됨: ${result.relativePath}`;
+    } else {
+      alert(result.reason || '저장하지 못했습니다.');
+      saveBtn.textContent = originalLabel;
+    }
+  } finally {
+    saveBtn.disabled = false;
+    setTimeout(() => {
+      saveBtn.textContent = originalLabel;
+    }, 2500);
+  }
+});
+
+// ===================================================================
 // §M — 작업 정지 + 안전 종료: 급하게 나가야 할 때, 진행 중인 요청을 정리
 // (취소 + 그때까지의 응답 저장)하고 나서 앱을 완전히 종료한다. 앱이 완전히
 // 종료되면 그 순간부터 SSD를 물리적으로 뽑아도 안전하다.
@@ -1348,17 +1513,11 @@ async function switchToProjectLocally(project) {
   addBubble('system', `✅ '${projectLabel(project)}' 프로젝트로 전환했습니다.`);
 }
 
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const text = input.value.trim();
+// §I — 실패한 메시지 재시도. form submit 핸들러 본문을 sendPrompt(text)로
+// 빼서, "다시 시도" 버튼 클릭도 사용자가 다시 타이핑해서 전송한 것과
+// 완전히 동일한 경로(같은 검증/스트리밍/취소/오류 처리)를 타게 한다.
+async function sendPrompt(text) {
   if (!text || isBusy) return;
-
-  const switchTarget = matchProjectSwitchCommand(text);
-  if (switchTarget) {
-    input.value = '';
-    await switchToProjectLocally(switchTarget);
-    return;
-  }
 
   // 지금 화면에 과거 기록(다른 스레드, 또는 activeProject의 지금 활성
   // 스레드가 아닌 것)을 보고 있었다면, 새 메시지는 activeProject의 활성
@@ -1372,7 +1531,6 @@ form.addEventListener('submit', async (event) => {
   hideResumeBanner();
 
   addBubble('user', text);
-  input.value = '';
   setBusy(true);
 
   try {
@@ -1399,7 +1557,13 @@ form.addEventListener('submit', async (event) => {
     }
   } catch (err) {
     if (pendingBubble) pendingBubble.el.remove();
-    addBubble('error', err.message || String(err));
+    const bubble = addBubble('error', err.message || String(err));
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'text-btn bubble-retry';
+    retryBtn.textContent = '다시 시도';
+    retryBtn.addEventListener('click', () => sendPrompt(text));
+    bubble.el.appendChild(retryBtn);
   } finally {
     pendingBubble = null;
     pendingTaskId = null;
@@ -1407,6 +1571,22 @@ form.addEventListener('submit', async (event) => {
     await loadHistory();
     refreshThreadStatus();
   }
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const text = input.value.trim();
+  if (!text || isBusy) return;
+
+  const switchTarget = matchProjectSwitchCommand(text);
+  if (switchTarget) {
+    input.value = '';
+    await switchToProjectLocally(switchTarget);
+    return;
+  }
+
+  input.value = '';
+  await sendPrompt(text);
 });
 
 // ===================================================================
@@ -1510,6 +1690,9 @@ document.addEventListener('mousemove', (event) => {
 setState('idle');
 setUiPhase('idle');
 (async () => {
+  // 즐겨찾기는 loadHistory()가 트리를 그리기 전에 먼저 채워져 있어야
+  // 첫 렌더링부터 별 아이콘 상태가 정확하다.
+  await loadFavorites();
   await loadProjects();
   await loadHistory();
   await refreshThreadStatus();

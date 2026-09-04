@@ -36,9 +36,11 @@ class Store {
     if (fs.existsSync(this.filePath)) {
       try {
         this.data = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-        // 구버전 저장 파일(activeThreads/presets 필드가 생기기 전)과의 하위호환.
+        // 구버전 저장 파일(activeThreads/presets/favorites 필드가 생기기
+        // 전)과의 하위호환.
         if (!this.data.activeThreads) this.data.activeThreads = {};
         if (!this.data.presets) this.data.presets = [];
+        if (!this.data.favorites) this.data.favorites = [];
         return;
       } catch (err) {
         // 파일이 깨져 있어도(예: USB가 저장 도중 뽑힘) 조용히 버리지 않는다.
@@ -75,6 +77,10 @@ class Store {
       // 사용자가 직접 만든 자주 쓰는 프롬프트 문구(§I 프리셋 관리 패널).
       // 프로젝트 구분 없이 전역으로 공유한다 — { id, label, text }[].
       presets: [],
+      // 즐겨찾기(고정)한 대화 스레드. "project::threadId" 형태의 문자열
+      // 배열 — 스레드 단위 식별자가 이미 이 두 값의 조합이라(threadId가
+      // 없는 옛 1회성 기록은 즐겨찾기 대상에서 제외) 별도 id 체계 불필요.
+      favorites: [],
     };
   }
 
@@ -165,6 +171,12 @@ class Store {
       this.data.activeThreads[newName] = this.data.activeThreads[oldName];
       delete this.data.activeThreads[oldName];
     }
+    // 즐겨찾기 키에도 프로젝트 이름이 그대로 박혀 있으므로("project::threadId"),
+    // 이름을 안 옮기면 이름변경 후 그 스레드의 즐겨찾기 표시가 조용히 풀린다.
+    const oldPrefix = `${oldName}::`;
+    this.data.favorites = this.data.favorites.map((key) =>
+      key.startsWith(oldPrefix) ? `${newName}::${key.slice(oldPrefix.length)}` : key
+    );
     this._save();
   }
 
@@ -216,6 +228,34 @@ class Store {
     // 세션을 시작하므로 사용자 입장에선 기억이 사라진 것과 동일하다).
     this.data.activeThreads = {};
     this._save();
+  }
+
+  // --- 즐겨찾기(고정) 대화 스레드(§I) ---
+  _favKey(project, threadId) {
+    return `${project}::${threadId}`;
+  }
+
+  getFavorites() {
+    return this.data.favorites;
+  }
+
+  isFavorite(project, threadId) {
+    if (!threadId) return false;
+    return this.data.favorites.includes(this._favKey(project, threadId));
+  }
+
+  // 반환값: 토글 후 지금 즐겨찾기 상태(true=추가됨, false=해제됨).
+  toggleFavorite(project, threadId) {
+    if (!threadId) return false;
+    const key = this._favKey(project, threadId);
+    const idx = this.data.favorites.indexOf(key);
+    if (idx === -1) {
+      this.data.favorites.push(key);
+    } else {
+      this.data.favorites.splice(idx, 1);
+    }
+    this._save();
+    return idx === -1;
   }
 
   // --- 프롬프트 프리셋(§I) ---

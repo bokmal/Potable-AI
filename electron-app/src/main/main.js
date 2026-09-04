@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, clipboard, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -120,6 +120,20 @@ app.on('before-quit', (event) => {
 function send(event, channel, payload) {
   if (event && event.sender && !event.sender.isDestroyed()) {
     event.sender.send(channel, payload);
+  }
+}
+
+// §I — 응답 완료 시 OS 알림. 사용자가 이미 CAELUS 창을 보고 있으면(포커스
+// 있고 최소화도 안 됨) 화면에서 바로 확인되므로 알림까지 뜨면 오히려
+// 방해된다 — 창이 최소화/비활성일 때만 울린다.
+function notifyIfAway(title, body) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isFocused() && !mainWindow.isMinimized()) return;
+  if (!Notification.isSupported()) return;
+  try {
+    new Notification({ title, body }).show();
+  } catch {
+    // 알림이 막힌 환경(OS 권한 등)이면 조용히 무시 — 핵심 기능이 아님
   }
 }
 
@@ -448,11 +462,80 @@ ipcMain.handle('caelus:read-workspace-file', (event, project, relPath) => {
   return { content: slice.toString('utf8'), truncated, error: null };
 });
 
+// §I — Claude 응답의 코드 블록을 "파일로 저장" 버튼으로 프로젝트 폴더에
+// 기록한다. 실제 프로젝트 파일과 섞이지 않도록 전용 하위 폴더
+// (caelus-snippets\)에 모아둔다 — 사용자가 원하면 위 작업공간 패널에서
+// 그대로 찾아볼 수 있다.
+const LANG_EXT_MAP = {
+  js: 'js', javascript: 'js', jsx: 'jsx', ts: 'ts', typescript: 'ts', tsx: 'tsx',
+  py: 'py', python: 'py', html: 'html', css: 'css', json: 'json',
+  md: 'md', markdown: 'md', sh: 'sh', bash: 'sh', shell: 'sh',
+  java: 'java', c: 'c', cpp: 'cpp', 'c++': 'cpp', go: 'go',
+  rust: 'rs', rs: 'rs', ruby: 'rb', rb: 'rb', php: 'php', sql: 'sql', yaml: 'yml', yml: 'yml',
+};
+
+ipcMain.handle('caelus:save-code-snippet', (event, project, lang, content) => {
+  const dir = projectDir(project);
+  if (!dir) return { saved: false, reason: '잘못된 프로젝트입니다.' };
+  const snippetsDir = path.join(dir, 'caelus-snippets');
+  try {
+    if (!fs.existsSync(snippetsDir)) fs.mkdirSync(snippetsDir, { recursive: true });
+    const ext = LANG_EXT_MAP[String(lang || '').toLowerCase()] || 'txt';
+    const filename = `snippet-${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(snippetsDir, filename), String(content || ''), 'utf8');
+    return { saved: true, relativePath: `caelus-snippets/${filename}` };
+  } catch (err) {
+    return { saved: false, reason: err.message };
+  }
+});
+
+// §I — 파일 첨부(드래그 앤 드롭). claude CLI는 텍스트만 주고받는 --print
+// 모드라 파일 자체를 직접 받을 방법이 없다 — 그래서 끌어놓은 파일을 실제로
+// activeProject 폴더(claudeBridge.js가 매번 cwd로 지정하는 바로 그 폴더)
+// 안에 복사해두고, 렌더러가 입력창에 그 경로를 적어 넣어 프롬프트로
+// 참조하게 하는 방식으로 구현한다.
+const MAX_IMPORT_BYTES = 50 * 1024 * 1024; // 실수로 거대한 파일을 끌어놔도 USB 용량을 순식간에 잡아먹지 않게
+
+ipcMain.handle('caelus:import-file', (event, project, sourcePath) => {
+  const dir = projectDir(project);
+  if (!dir) return { imported: false, reason: '잘못된 프로젝트입니다.' };
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
+    return { imported: false, reason: '파일을 찾을 수 없습니다.' };
+  }
+  const stat = fs.statSync(sourcePath);
+  if (!stat.isFile()) return { imported: false, reason: '폴더는 첨부할 수 없습니다.' };
+  if (stat.size > MAX_IMPORT_BYTES) return { imported: false, reason: '파일이 너무 큽니다(50MB 제한).' };
+
+  // 파일명에 경로 문자가 섞여 있으면(드문 경우) 프로젝트 폴더 밖을
+  // 가리키는 이름이 될 수 있으므로 제거한다 — safeProjectPath와 같은 이유.
+  const baseName = path.basename(sourcePath).replace(/[\\/:*?"<>|]/g, '_');
+  let targetName = baseName;
+  let counter = 1;
+  while (fs.existsSync(path.join(dir, targetName))) {
+    const ext = path.extname(baseName);
+    const stem = path.basename(baseName, ext);
+    targetName = `${stem}-${counter}${ext}`;
+    counter += 1;
+  }
+  try {
+    fs.copyFileSync(sourcePath, path.join(dir, targetName));
+    return { imported: true, relativePath: targetName };
+  } catch (err) {
+    return { imported: false, reason: err.message };
+  }
+});
+
 // --- IPC: 프롬프트 프리셋(§I) ---
 ipcMain.handle('caelus:list-presets', () => store.getPresets());
 ipcMain.handle('caelus:add-preset', (event, label, text) => store.addPreset(label, text));
 ipcMain.handle('caelus:update-preset', (event, id, fields) => ({ updated: store.updatePreset(id, fields) }));
 ipcMain.handle('caelus:delete-preset', (event, id) => ({ deleted: store.deletePreset(id) }));
+
+// --- IPC: 즐겨찾기(고정) 대화 스레드(§I) ---
+ipcMain.handle('caelus:get-favorites', () => store.getFavorites());
+ipcMain.handle('caelus:toggle-favorite', (event, project, threadId) => ({
+  favorited: store.toggleFavorite(project, threadId),
+}));
 
 // --- IPC: 클립보드 복사 ---
 ipcMain.handle('caelus:copy-text', (event, text) => {
@@ -475,6 +558,54 @@ ipcMain.handle('caelus:export-conversation', async (event, { content, suggestedN
   fs.writeFileSync(result.filePath, content, 'utf8');
   return { saved: true, filePath: result.filePath };
 });
+
+// §I — 코딩 모드 실행 직전 프로젝트 폴더 스냅샷. Claude가 code 모드에서
+// 파일을 고치기 시작하면 "되돌리기" 수단이 지금까지 전혀 없었다 — Portable
+// Git(GIT_EXE)이 이미 번들돼 있으므로, 그 폴더를(아직 아니라면) git
+// 저장소로 만들고 매 code 모드 요청 직전에 현재 상태를 커밋해둔다. 이렇게
+// 쌓인 이력이면 사용자가 언제든 그 시점으로 git으로 되돌릴 수 있다(§L의
+// diff 뷰어가 이 커밋들을 활용할 예정).
+//
+// 순전히 최선 노력(best-effort) 안전망이다 — git이 없거나, 아직 초기
+// 커밋할 게 없거나(빈 폴더), 커밋할 변경사항이 없으면(직전 스냅샷과
+// 동일) 전부 조용히 넘어간다. 실패해도 code 모드 요청 자체를 막지 않는다
+// (스냅샷은 부가 기능이지 필수 전제조건이 아니다).
+function snapshotProjectBeforeCodeMode(cwd) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(GIT_EXE)) {
+      resolve();
+      return;
+    }
+    const opts = { cwd, timeout: 15000 };
+    const gitDir = path.join(cwd, '.git');
+    const commitSnapshot = () => {
+      execFile(GIT_EXE, ['add', '-A'], opts, () => {
+        const message = `[CAELUS] 코드 작업 전 스냅샷 - ${new Date().toISOString()}`;
+        // 이 저장소에만 적용되는 커밋 작성자 정보를 인라인으로 넘긴다(-c) —
+        // USB를 꽂은 PC의 전역 git 설정(user.name/user.email)이 없어도
+        // 커밋이 실패하지 않게 하기 위함이며, 다른 어떤 전역 설정도
+        // 건드리지 않는다.
+        execFile(
+          GIT_EXE,
+          ['-c', 'user.name=CAELUS', '-c', 'user.email=caelus@local', 'commit', '-m', message, '--quiet'],
+          opts,
+          () => resolve() // 커밋할 변경사항이 없어 실패하는 게 정상적인 대부분의 경우 — 조용히 진행
+        );
+      });
+    };
+    if (fs.existsSync(gitDir)) {
+      commitSnapshot();
+    } else {
+      execFile(GIT_EXE, ['init', '--quiet'], opts, (err) => {
+        if (err) {
+          resolve(); // init조차 실패하면(권한 등) 스냅샷은 포기하고 요청은 계속 진행
+          return;
+        }
+        commitSnapshot();
+      });
+    }
+  });
+}
 
 // --- IPC: 이 저장소(USB)에 새 커밋이 있는지 확인 (자동으로 pull 하지는 않음) ---
 ipcMain.handle('caelus:check-update', () => {
@@ -555,6 +686,13 @@ ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => 
     fs.mkdirSync(cwd, { recursive: true });
   }
 
+  // §I — code 모드로 파일을 고치기 시작하기 직전에 지금 상태를 스냅샷
+  // 커밋해둔다(최선 노력 — 실패해도 요청 자체는 계속 진행). chat 모드는
+  // 파일을 안 건드리므로 스냅샷이 필요 없다.
+  if (mode === 'code') {
+    await snapshotProjectBeforeCodeMode(cwd);
+  }
+
   // 이 프로젝트에 이미 이어지고 있는 대화 스레드가 있으면 그걸 --resume,
   // 없으면 새로 만든 uuid를 --session-id로 시작한다.
   const existingThread = store.getActiveThread(targetProject);
@@ -602,6 +740,7 @@ ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => 
     store.updateTaskStatus(task.task_id, 'done');
     store.setActiveThread(targetProject, finalThreadId);
     send(event, 'caelus:status', { state: 'response', taskId: task.task_id });
+    notifyIfAway('CAELUS 응답 도착', task.title);
 
     return { taskId: task.task_id, text: responseText };
   } catch (err) {
@@ -621,6 +760,7 @@ ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => 
     store.updateTaskStatus(task.task_id, 'error');
     store.appendLog(task.task_id, `[오류] ${err.message}`);
     send(event, 'caelus:status', { state: 'error', taskId: task.task_id, message: err.message });
+    notifyIfAway('CAELUS 오류', task.title);
     throw err;
   } finally {
     activeChild = null;

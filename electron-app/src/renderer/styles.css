@@ -89,7 +89,13 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   display: flex;
   justify-content: center;
   isolation: isolate;
+  transition: outline-color .15s ease, background .15s ease;
+  outline: 2px dashed transparent;
+  outline-offset: -8px;
 }
+/* §I — 파일을 끌어오는 동안 창 전체에 은은한 점선 테두리로 "여기 놓으면
+   된다"를 알려준다. */
+body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(93, 232, 255, 0.04); }
 
 .ambient-grid,
 .scanline,
@@ -312,13 +318,13 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .floating-panel-close:hover { color: var(--error); background: rgba(255,100,125,0.1); }
 .floating-panel-body { min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 
-.icon-btn, .text-btn, .mode-btn, .cancel-btn, .command-submit, .settings-item, .tg-action, .h-delete, .h-rename, .bubble-copy, .preset-use {
+.icon-btn, .text-btn, .mode-btn, .cancel-btn, .command-submit, .settings-item, .tg-action, .h-delete, .h-rename, .h-favorite, .bubble-copy, .preset-use {
   border: 1px solid var(--line);
   color: var(--text-soft);
   background: rgba(93, 232, 255, 0.055);
   transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
 }
-.icon-btn:hover, .text-btn:hover, .mode-btn:hover, .cancel-btn:hover, .command-submit:hover, .settings-item:hover, .tg-action:hover, .h-delete:hover, .h-rename:hover, .bubble-copy:hover, .preset-use:hover {
+.icon-btn:hover, .text-btn:hover, .mode-btn:hover, .cancel-btn:hover, .command-submit:hover, .settings-item:hover, .tg-action:hover, .h-delete:hover, .h-rename:hover, .h-favorite:hover, .bubble-copy:hover, .preset-use:hover {
   border-color: var(--line-hot);
   color: var(--text);
   background: rgba(93, 232, 255, 0.11);
@@ -391,7 +397,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .tree-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
 .tree-group-badge { min-width: 24px; padding: 3px 8px; border-radius: 999px; text-align: center; color: var(--idle); background: var(--idle-soft); font-family: var(--font-mono); font-size: 11px; }
 .tree-group-actions { display: inline-flex; gap: 5px; }
-.tg-action, .h-delete, .h-rename { width: 26px; height: 26px; border-radius: 9px; display: inline-grid; place-items: center; padding: 0; }
+.tg-action, .h-delete, .h-rename, .h-favorite { width: 26px; height: 26px; border-radius: 9px; display: inline-grid; place-items: center; padding: 0; }
 .tree-group-children { display: grid; gap: 7px; margin: 0; padding: 0 0 0 10px; list-style: none; border-left: 1px solid rgba(93,232,255,0.12); }
 /* toggleGroupCollapsed()가 접을 때 .hidden = true를 쓰는데, 위 display:grid가
    [hidden]의 기본 display:none을 덮어써서 캐럿은 회전해도 실제 하위 목록은
@@ -400,7 +406,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .history-item {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 6px;
   align-items: center;
   padding: 10px;
@@ -410,9 +416,15 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .history-item:hover { background: rgba(93,232,255,0.055); border-color: rgba(93,232,255,0.18); }
 .h-title { grid-column: 1 / 2; color: var(--text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.h-meta { grid-column: 1 / 2; color: var(--text-faint); font-size: 10px; }
-.h-rename { grid-row: 1 / 3; grid-column: 2; opacity: 0.75; }
-.h-delete { grid-row: 1 / 3; grid-column: 3; opacity: 0.75; }
+.h-meta { grid-column: 1 / 2; color: var(--text-faint); font-size: 10px; display: flex; align-items: center; gap: 6px; }
+/* §I — 검색 결과/즐겨찾기 목록처럼 여러 프로젝트가 섞여 보일 때, 각 항목이
+   어느 프로젝트 소속인지 표시하는 작은 태그. */
+.h-project-tag { flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--idle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.03em; }
+.h-favorite { grid-row: 1 / 3; grid-column: 2; opacity: 0.6; color: var(--text-faint); }
+.h-favorite.active,
+.h-favorite:hover { opacity: 1; color: var(--warning); }
+.h-rename { grid-row: 1 / 3; grid-column: 3; opacity: 0.75; }
+.h-delete { grid-row: 1 / 3; grid-column: 4; opacity: 0.75; }
 .h-delete:hover, .settings-item.danger:hover { color: var(--error); border-color: rgba(255,100,125,0.45); background: rgba(255,100,125,0.08); }
 .history-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 12px; }
 
@@ -557,8 +569,22 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .bubble-content { position: relative; z-index: 1; padding: 9px 13px 13px; }
 .bubble-copy { position: absolute; right: 10px; top: 8px; z-index: 3; opacity: 0; border-radius: 999px; padding: 4px 9px; font-size: 11px; background: rgba(5,12,24,0.92); }
 .bubble:hover .bubble-copy { opacity: 1; }
+/* §I — 실패한 메시지 재시도. 오류는 발견 즉시 눈에 띄어야 하므로 복사
+   버튼과 달리 hover에 숨기지 않고 항상 보이게 둔다. */
+.bubble-retry { position: relative; z-index: 1; display: block; margin: 0 13px 13px; }
 .bubble pre { overflow-x: auto; padding: 13px; border: 1px solid rgba(91,231,255,0.15); border-radius: 13px; background: rgba(1, 5, 10, 0.58); }
 .bubble code { font-family: var(--font-mono); color: var(--idle); }
+/* §I — 코드 블록 "파일로 저장" 버튼. .code-block이 위치 기준이 되고,
+   버튼은 그 오른쪽 위 구석에 떠서 코드 자체를 가리지 않는다. */
+.code-block { position: relative; }
+.code-save-btn {
+  position: absolute; right: 8px; top: 8px; z-index: 3;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+  font-size: 10.5px; color: var(--text-soft); background: rgba(5,12,24,0.85);
+  opacity: 0; transition: opacity .16s ease, color .16s ease, border-color .16s ease;
+}
+.code-block:hover .code-save-btn { opacity: 1; }
+.code-save-btn:hover { color: var(--idle); border-color: var(--line-hot); }
 
 /* 자주 쓰는 명령 버튼/모드 선택 줄은 더 이상 화면에 상시 떠 있지 않는다 —
    모드 선택은 좌상단 메뉴 안으로 옮겼다(.os-menu-list .mode-toggle 참고). */

@@ -125,6 +125,13 @@
         <input id="history-search" class="history-search" type="text" placeholder="대화/프로젝트 검색  /  Ctrl+K" autocomplete="off" />
 
         <div id="history-scroll" class="history-scroll">
+          <div id="favorites-section" hidden>
+            <div class="tree-section-header">
+              <span class="tree-section-title">⭐ 즐겨찾기</span>
+            </div>
+            <ul id="favorites-list" class="history-list"></ul>
+          </div>
+
           <div class="tree-section-header">
             <span class="tree-section-title">작업 프로젝트</span>
             <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기" aria-label="새 프로젝트 만들기">+</button>

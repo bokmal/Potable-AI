@@ -22,11 +22,16 @@ contextBridge.exposeInMainWorld('caelus', {
 
   listWorkspaceFiles: (project, relPath) => ipcRenderer.invoke('caelus:list-workspace-files', project, relPath),
   readWorkspaceFile: (project, relPath) => ipcRenderer.invoke('caelus:read-workspace-file', project, relPath),
+  saveCodeSnippet: (project, lang, content) => ipcRenderer.invoke('caelus:save-code-snippet', project, lang, content),
+  importFile: (project, sourcePath) => ipcRenderer.invoke('caelus:import-file', project, sourcePath),
 
   listPresets: () => ipcRenderer.invoke('caelus:list-presets'),
   addPreset: (label, text) => ipcRenderer.invoke('caelus:add-preset', label, text),
   updatePreset: (id, fields) => ipcRenderer.invoke('caelus:update-preset', id, fields),
   deletePreset: (id) => ipcRenderer.invoke('caelus:delete-preset', id),
+
+  getFavorites: () => ipcRenderer.invoke('caelus:get-favorites'),
+  toggleFavorite: (project, threadId) => ipcRenderer.invoke('caelus:toggle-favorite', project, threadId),
 
   getThreadInfo: (project) => ipcRenderer.invoke('caelus:get-thread-info', project),
   startNewThread: (project) => ipcRenderer.invoke('caelus:new-thread', project),
