@@ -260,9 +260,9 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
 .menu-thread-item .mt-title { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-thread-item .mt-meta { font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.02em; }
 
-.os-menu-tools { display: flex; gap: 4px; padding: 2px 2px 0; }
+.os-menu-tools { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 2px 0; }
 .os-menu-tool {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  flex: 1 1 27%; display: flex; flex-direction: column; align-items: center; gap: 5px;
   padding: 9px 2px 8px; border-radius: 12px; text-align: center;
   font-size: 9.5px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.04em;
 }
@@ -521,8 +521,13 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
    확실히 다시 숨긴다. */
 .thread-status[hidden] { display: none; }
 .thread-status-label { color: var(--text-soft); font-weight: 700; font-size: 13px; }
-.thread-warning, .resume-banner { padding: 10px 14px; color: var(--warning); border-bottom: 1px solid rgba(255,204,102,0.17); background: rgba(255,204,102,0.055); font-size: 13px; }
-.resume-banner { color: var(--idle); display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(93,232,255,0.055); border-bottom-color: rgba(93,232,255,0.17); }
+.thread-warning, .resume-banner { padding: 10px 14px; color: var(--warning); border-bottom: 1px solid rgba(255,204,102,0.17); background: rgba(255,204,102,0.055); font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* §L — "요약해서 새로 시작" 버튼이 생기면서 텍스트+버튼을 나란히 두는
+   flex로 바뀌었다 — .resume-banner에서 이미 겪은 것과 같은 이유로,
+   hidden일 때 이 display:flex가 [hidden]의 기본 display:none을 덮어쓰지
+   않도록 확실히 다시 숨긴다. */
+.thread-warning[hidden] { display: none; }
+.resume-banner { color: var(--idle); background: rgba(93,232,255,0.055); border-bottom-color: rgba(93,232,255,0.17); }
 /* 위 display:flex가 hidden 속성의 기본 display:none을 덮어써서, 이어서
    대화하기 배너가 숨겨져 있어야 할 때도 계속 보이던 버그 — hidden일 때는
    다시 확실히 숨긴다. */
@@ -592,7 +597,10 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
 .mode-btn { min-width: 112px; min-height: 42px; border-radius: 12px; padding: 6px 10px; display: grid; gap: 2px; text-align: center; font-weight: 800; }
 .mode-btn.active { color: #041014; border-color: rgba(186,255,255,0.78); background: linear-gradient(135deg, rgba(93,232,255,0.92), rgba(186,255,255,0.70)); box-shadow: 0 0 26px rgba(93,232,255,0.14); }
 
-.command-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px; }
+.command-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 12px; }
+/* §L — 메시지 큐 개수 표시. 비어 있으면 텍스트가 없어 자연스럽게 공간을
+   거의 안 차지한다. */
+.queue-indicator { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; }
 .command-input { height: 46px; padding: 0 15px; font-size: 14px; border-radius: 15px; }
 .cancel-btn, .command-submit { min-height: 44px; padding: 0 18px; font-size: 13px; font-weight: 900; }
 .cancel-btn { color: var(--warning); }
@@ -635,6 +643,55 @@ body.drag-over .app { outline-color: rgba(93, 232, 255, 0.55); background: rgba(
 }
 .preset-row-actions { display: inline-flex; gap: 4px; flex: 0 0 auto; }
 .preset-editor { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; border-top: 1px solid var(--line); }
+
+/* §L — Git 패널(상태 요약 + 커밋 이력 + diff). */
+.git-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-soft); }
+.git-summary .git-branch { font-family: var(--font-mono); color: var(--idle); font-weight: 700; }
+.git-summary .git-change-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 11px; font-family: var(--font-mono); }
+.git-log { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
+.git-commit {
+  width: 100%; border: none; background: transparent; text-align: left;
+  padding: 7px 9px; border-radius: 10px; display: flex; flex-direction: column; gap: 2px;
+}
+.git-commit:hover { background: rgba(93,232,255,0.08); }
+.git-commit-msg { color: var(--text); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-commit-meta { color: var(--text-faint); font-size: 10px; font-family: var(--font-mono); }
+
+/* §L — 사용 통계 패널. */
+.stats-by-project { display: flex; flex-direction: column; gap: 6px; }
+.stats-project-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(93,232,255,0.035); font-size: 12.5px; }
+.stats-project-row .stats-count { color: var(--idle); font-family: var(--font-mono); font-weight: 700; }
+
+/* §L — 단축키 안내 패널. */
+.shortcut-list { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.shortcut-list li { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-soft); }
+.shortcut-list kbd {
+  display: inline-block; min-width: 22px; padding: 3px 7px; text-align: center;
+  border: 1px solid var(--line-strong); border-radius: 7px; background: rgba(93,232,255,0.06);
+  color: var(--text); font-family: var(--font-mono); font-size: 11px;
+}
+
+/* §L — 새 프로젝트 템플릿 선택 행. */
+.new-project-row { display: flex; gap: 6px; }
+.new-project-row .new-project-input { flex: 1 1 auto; min-width: 0; }
+.new-project-template {
+  flex: 0 0 auto; height: 36px; padding: 0 8px; font-size: 11px; border-radius: 10px;
+  border: 1px solid var(--line); background: rgba(0,0,0,0.28); color: var(--text-soft);
+}
+
+/* §L — 설정 패널의 모델 선택 드롭다운. */
+.settings-select-row { cursor: default; }
+.settings-select {
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.28);
+  color: var(--idle); font-family: var(--font-mono); font-size: 11px; padding: 5px 8px;
+}
+
+/* §L — 과거 스레드를 볼 때만 나타나는 프로젝트 재분류 선택창. */
+.thread-reassign-select {
+  border: 1px solid var(--line); border-radius: 999px; background: rgba(0,0,0,0.28);
+  color: var(--text-soft); font-size: 11px; padding: 4px 8px;
+}
+.thread-reassign-select[hidden] { display: none; }
 
 /* 코어 내부의 spin/breathe/echo류 애니메이션은 이제 전부 캔버스 파티클
    (renderer.js 맨 아래)이 담당한다 — CSS keyframes는 더 이상 없음. */

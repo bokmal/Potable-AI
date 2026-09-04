@@ -231,13 +231,38 @@ function validateProjectName(trimmed, { existingTarget } = {}) {
 }
 
 // --- IPC: projects\ 아래에 새 폴더 만들기 ---
-ipcMain.handle('caelus:create-project', (event, name) => {
+// §L — 새 프로젝트 템플릿. 빈 폴더 대신 선택한 스타터 구조로 초기화한다.
+// template이 이 목록에 없으면(생략 포함) 지금까지처럼 빈 폴더 그대로 둔다.
+const PROJECT_TEMPLATES = {
+  node: {
+    'package.json': `${JSON.stringify({ name: 'my-project', version: '1.0.0', main: 'index.js' }, null, 2)}\n`,
+    'index.js': "console.log('Hello from CAELUS!');\n",
+    '.gitignore': 'node_modules/\n',
+  },
+  python: {
+    'main.py': "print('Hello from CAELUS!')\n",
+    'requirements.txt': '',
+  },
+  static: {
+    'index.html':
+      '<!doctype html>\n<html>\n<head><meta charset="UTF-8"><title>My Site</title></head>\n<body>\n<h1>Hello from CAELUS!</h1>\n</body>\n</html>\n',
+    'styles.css': 'body { font-family: sans-serif; }\n',
+  },
+};
+
+ipcMain.handle('caelus:create-project', (event, name, template) => {
   const trimmed = String(name || '').trim();
   const check = validateProjectName(trimmed);
   if (!check.ok) return { created: false, reason: check.reason };
 
   try {
     fs.mkdirSync(check.target, { recursive: true });
+    const files = PROJECT_TEMPLATES[template];
+    if (files) {
+      Object.entries(files).forEach(([filename, content]) => {
+        fs.writeFileSync(path.join(check.target, filename), content, 'utf8');
+      });
+    }
     return { created: true, name: trimmed };
   } catch (err) {
     return { created: false, reason: err.message };
@@ -396,6 +421,23 @@ ipcMain.handle('caelus:rename-task', (event, taskId, newTitle) => {
   return { renamed: store.renameTask(taskId, newTitle) };
 });
 
+// §L — 대화 스레드를 다른 프로젝트로 재분류.
+ipcMain.handle('caelus:reassign-thread', (event, oldProject, threadId, newProject) => {
+  return { reassigned: store.reassignThreadProject(oldProject, threadId, newProject) };
+});
+
+// §L — 활성 프로젝트 폴더를 OS 탐색기로 열기. §K에서 확인한 "좁은 범위
+// OS 연동은 안전하게 추가 가능"의 구체적 구현 — 지금 활성화된 프로젝트
+// 폴더 하나로만 범위를 좁힌다(임의 경로를 열 방법은 없음).
+ipcMain.handle('caelus:open-project-folder', async (event, project) => {
+  const dir = projectDir(project);
+  if (!dir) return { opened: false, reason: '잘못된 프로젝트입니다.' };
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const result = await shell.openPath(dir);
+  // shell.openPath는 성공하면 빈 문자열을, 실패하면 에러 메시지를 반환한다.
+  return result ? { opened: false, reason: result } : { opened: true };
+});
+
 // --- IPC: 작업공간 파일 트리(§I) ---
 // #panel-workspace를 activeProject와 무관한 장식용 정적 텍스트가 아니라
 // 실제 프로젝트 폴더 구조를 보여주는 미니 파일 브라우저로 만든다.
@@ -525,6 +567,73 @@ ipcMain.handle('caelus:import-file', (event, project, sourcePath) => {
   }
 });
 
+// --- IPC: Git 상태/로그 + diff 뷰어(§L) ---
+// Portable Git(GIT_EXE)이 이미 번들돼 있고, §I의 코드 모드 자동 스냅샷이
+// 매 code 모드 요청 직전 커밋을 쌓아두므로, 여기서는 그 이력을 조회만
+// 한다 — 지금까지 Claude한테 텍스트로 물어봐야만 알 수 있던 브랜치/변경
+// 파일/최근 커밋을 패널로 바로 보여준다.
+function runGit(cwd, args) {
+  return new Promise((resolve) => {
+    execFile(GIT_EXE, args, { cwd, timeout: 15000, maxBuffer: 5 * 1024 * 1024 }, (err, stdout, stderr) => {
+      resolve({ err, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+ipcMain.handle('caelus:get-git-info', async (event, project) => {
+  const dir = projectDir(project);
+  if (!dir) return { available: false, reason: '잘못된 프로젝트입니다.' };
+  if (!fs.existsSync(GIT_EXE)) return { available: false, reason: 'git을 찾을 수 없습니다.' };
+  if (!fs.existsSync(path.join(dir, '.git'))) {
+    return {
+      available: false,
+      reason: '이 프로젝트는 아직 git 저장소가 아닙니다. 코딩 모드로 한 번 이상 작업하면 자동으로 만들어집니다.',
+    };
+  }
+
+  const branchResult = await runGit(dir, ['branch', '--show-current']);
+  const branch = branchResult.stdout.trim() || '(브랜치 없음)';
+
+  const statusResult = await runGit(dir, ['status', '--porcelain']);
+  const statusLines = statusResult.stdout.split('\n').filter(Boolean);
+  const changes = { modified: 0, added: 0, deleted: 0, untracked: 0 };
+  statusLines.forEach((line) => {
+    const code = line.slice(0, 2);
+    if (code.includes('?')) changes.untracked += 1;
+    else if (code.includes('A')) changes.added += 1;
+    else if (code.includes('D')) changes.deleted += 1;
+    else changes.modified += 1;
+  });
+
+  // \x1f(단위 구분자)로 필드를 나눈다 — 커밋 메시지 안에 콤마/파이프가
+  // 섞여도 안전하게 쪼갤 수 있도록.
+  const logResult = await runGit(dir, ['log', '-30', '--pretty=format:%h\x1f%s\x1f%ad', '--date=iso-strict']);
+  const commits = logResult.stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [hash, message, date] = line.split('\x1f');
+      return { hash, message, date };
+    });
+
+  return { available: true, branch, changes, commits };
+});
+
+ipcMain.handle('caelus:get-commit-diff', async (event, project, hash) => {
+  const dir = projectDir(project);
+  if (!dir || !fs.existsSync(GIT_EXE)) return { diff: '', error: '사용할 수 없습니다.' };
+  if (!/^[0-9a-f]{4,40}$/i.test(String(hash || ''))) return { diff: '', error: '잘못된 커밋입니다.' };
+  const result = await runGit(dir, ['show', hash, '--pretty=format:', '--no-color']);
+  if (result.err) return { diff: '', error: result.stderr.trim() || result.err.message };
+  // 아주 큰 diff는 미리보기 용도로 잘라서 반환한다(패널 렌더링 부담 방지).
+  const MAX_DIFF_CHARS = 200000;
+  const truncated = result.stdout.length > MAX_DIFF_CHARS;
+  return {
+    diff: result.stdout.slice(0, MAX_DIFF_CHARS) + (truncated ? '\n\n… (너무 커서 일부만 표시됨)' : ''),
+    error: null,
+  };
+});
+
 // --- IPC: 프롬프트 프리셋(§I) ---
 ipcMain.handle('caelus:list-presets', () => store.getPresets());
 ipcMain.handle('caelus:add-preset', (event, label, text) => store.addPreset(label, text));
@@ -536,6 +645,10 @@ ipcMain.handle('caelus:get-favorites', () => store.getFavorites());
 ipcMain.handle('caelus:toggle-favorite', (event, project, threadId) => ({
   favorited: store.toggleFavorite(project, threadId),
 }));
+
+// --- IPC: 모델 선택(§L) ---
+ipcMain.handle('caelus:get-model', () => store.getModel());
+ipcMain.handle('caelus:set-model', (event, model) => store.setModel(model));
 
 // --- IPC: 클립보드 복사 ---
 ipcMain.handle('caelus:copy-text', (event, text) => {
@@ -710,6 +823,7 @@ ipcMain.handle('caelus:send-command', async (event, text, mode, projectName) => 
       cwd,
       sessionId,
       resume,
+      model: store.getModel() || undefined, // §L — null이면 undefined로 넘겨 CLI 기본값 사용
       onChunk: (chunk) => {
         send(event, 'caelus:stream', { taskId: task.task_id, chunk });
       },

@@ -49,6 +49,21 @@ const presetTextInput = document.getElementById('preset-text-input');
 const presetAddBtn = document.getElementById('preset-add-btn');
 const favoritesSectionEl = document.getElementById('favorites-section');
 const favoritesListEl = document.getElementById('favorites-list');
+const openExplorerBtn = document.getElementById('open-explorer-btn');
+const gitSummaryEl = document.getElementById('git-summary');
+const gitLogEl = document.getElementById('git-log');
+const gitDiffEl = document.getElementById('git-diff');
+const gitDiffTitleEl = document.getElementById('git-diff-title');
+const gitDiffContentEl = document.getElementById('git-diff-content');
+const gitDiffCloseBtn = document.getElementById('git-diff-close');
+const statsSummaryEl = document.getElementById('stats-summary');
+const statsByProjectEl = document.getElementById('stats-by-project');
+const newProjectRow = document.getElementById('new-project-row');
+const newProjectTemplate = document.getElementById('new-project-template');
+const reassignThreadSelect = document.getElementById('reassign-thread-select');
+const summarizeContinueBtn = document.getElementById('summarize-continue-btn');
+const modelSelect = document.getElementById('model-select');
+const queueIndicatorEl = document.getElementById('queue-indicator');
 
 // 패키징된 앱에는 개발자 도구가 없어서, 버튼을 눌러도 뒷단(IPC/main
 // 프로세스)에서 조용히 실패하면 사용자 눈에는 "아무 반응이 없다"로만
@@ -176,10 +191,13 @@ document.querySelectorAll('[data-panel-target]').forEach((btn) => {
     const target = btn.dataset.panelTarget;
     openPanel(document.getElementById(target), btn);
     closeOsMenu();
-    // §I — 이 두 패널은 열 때마다 최신 내용을 다시 불러온다(작업공간은
-    // activeProject 폴더 구조, 프리셋은 저장된 목록).
+    // §I/§L — 이 패널들은 열 때마다 최신 내용을 다시 불러온다(작업공간은
+    // activeProject 폴더 구조, 프리셋은 저장된 목록, Git은 상태/커밋
+    // 이력, 통계는 지금 캐시된 작업 기록 기준 집계).
     if (target === 'panel-workspace') loadWorkspaceTree('');
     if (target === 'panel-presets') loadPresets();
+    if (target === 'panel-git') loadGitInfo();
+    if (target === 'panel-stats') renderStats();
   });
 });
 
@@ -188,6 +206,19 @@ settingsToggle.addEventListener('click', (event) => {
   openPanel(settingsPanel, settingsToggle);
   closeOsMenu();
   loadPersonaForActiveProject();
+  loadModelSetting();
+});
+
+// §L — 모델 선택. ⚠️ 설치된 Claude Code CLI가 --model 플래그와 이 값들을
+// 실제로 지원하는지 실기기 검증 전이라, 기본은 "CLI 기본값"(플래그 자체를
+// 안 붙임)이고 사용자가 명시적으로 고를 때만 지정된 모델로 넘어간다.
+async function loadModelSetting() {
+  const model = await window.caelus.getModel();
+  modelSelect.value = model || '';
+}
+
+modelSelect.addEventListener('change', async () => {
+  await window.caelus.setModel(modelSelect.value);
 });
 
 // ===================================================================
@@ -315,6 +346,13 @@ async function loadWorkspaceTree(relPath) {
 
 workspacePreviewCloseBtn.addEventListener('click', hideWorkspacePreview);
 
+// §L — 활성 프로젝트 폴더를 OS 탐색기로 열기(범위: 지금 activeProject
+// 폴더 하나뿐 — §K에서 확인한 "좁은 범위 OS 연동"의 구체적 구현).
+openExplorerBtn.addEventListener('click', async () => {
+  const result = await window.caelus.openProjectFolder(activeProject);
+  if (!result.opened) alert(result.reason || '폴더를 열지 못했습니다.');
+});
+
 // ===================================================================
 // §I — 프롬프트 프리셋 관리 패널. 자주 쓰는 문구를 저장해뒀다가 클릭 한
 // 번으로 입력창에 채워 넣는다. 프로젝트 구분 없이 전역으로 공유(store.js).
@@ -389,6 +427,111 @@ presetAddBtn.addEventListener('click', async () => {
   resetPresetEditor();
   await loadPresets();
 });
+
+// ===================================================================
+// §L — Git 패널(상태 요약 + 커밋 이력 + diff). §I의 코드 모드 자동
+// 스냅샷이 쌓아둔 커밋들을 조회만 한다.
+// ===================================================================
+function hideGitDiff() {
+  gitDiffEl.hidden = true;
+  gitDiffContentEl.textContent = '';
+}
+
+async function showCommitDiff(hash, message) {
+  gitDiffEl.hidden = false;
+  gitDiffTitleEl.textContent = message;
+  gitDiffContentEl.textContent = '불러오는 중…';
+  const result = await window.caelus.getCommitDiff(activeProject, hash);
+  gitDiffContentEl.textContent = result.error || result.diff || '(변경 내용 없음)';
+}
+
+async function loadGitInfo() {
+  gitSummaryEl.textContent = '불러오는 중…';
+  gitLogEl.innerHTML = '';
+  hideGitDiff();
+
+  const info = await window.caelus.getGitInfo(activeProject);
+  if (!info.available) {
+    gitSummaryEl.textContent = info.reason || '사용할 수 없습니다.';
+    return;
+  }
+
+  gitSummaryEl.innerHTML = `
+    <span class="git-branch">⎇ ${escapeHtml(info.branch)}</span>
+    <span class="git-change-pill">수정 ${info.changes.modified}</span>
+    <span class="git-change-pill">추가 ${info.changes.added}</span>
+    <span class="git-change-pill">삭제 ${info.changes.deleted}</span>
+    <span class="git-change-pill">추적 안 됨 ${info.changes.untracked}</span>
+  `;
+
+  if (info.commits.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'menu-recent-empty';
+    empty.textContent = '아직 스냅샷 커밋이 없습니다(코딩 모드로 작업하면 자동으로 쌓입니다).';
+    gitLogEl.appendChild(empty);
+    return;
+  }
+
+  info.commits.forEach((commit) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'git-commit';
+    btn.innerHTML = `
+      <span class="git-commit-msg">${escapeHtml(commit.message)}</span>
+      <span class="git-commit-meta">${escapeHtml(commit.hash)} · ${new Date(commit.date).toLocaleString('ko-KR')}</span>
+    `;
+    btn.addEventListener('click', () => showCommitDiff(commit.hash, commit.message));
+    gitLogEl.appendChild(btn);
+  });
+}
+
+gitDiffCloseBtn.addEventListener('click', hideGitDiff);
+
+// ===================================================================
+// §L — 로컬 사용 통계 패널. 새 데이터 수집 없이 이미 불러온
+// allTasksCache(store.js의 tasks/logs)를 renderer에서 집계만 한다.
+// ===================================================================
+function renderStats() {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const weekStart = todayStart - 6 * 24 * 60 * 60 * 1000; // 오늘 포함 최근 7일
+
+  let todayCount = 0;
+  let weekCount = 0;
+  const byProject = new Map();
+
+  allTasksCache.forEach((task) => {
+    const created = new Date(task.created_at).getTime();
+    if (created >= todayStart) todayCount += 1;
+    if (created >= weekStart) weekCount += 1;
+    const project = effectiveProject(task);
+    byProject.set(project, (byProject.get(project) || 0) + 1);
+  });
+
+  statsSummaryEl.innerHTML = `
+    <div><span>오늘</span><strong>${todayCount}</strong></div>
+    <div><span>이번 주</span><strong>${weekCount}</strong></div>
+    <div><span>전체</span><strong>${allTasksCache.length}</strong></div>
+    <div><span>프로젝트</span><strong>${byProject.size}</strong></div>
+  `;
+
+  statsByProjectEl.innerHTML = '';
+  if (byProject.size === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'menu-recent-empty';
+    empty.textContent = '아직 활동 기록이 없습니다.';
+    statsByProjectEl.appendChild(empty);
+    return;
+  }
+  [...byProject.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([project, count]) => {
+      const row = document.createElement('div');
+      row.className = 'stats-project-row';
+      row.innerHTML = `<span>${escapeHtml(projectLabel(project))}</span><span class="stats-count">${count}</span>`;
+      statsByProjectEl.appendChild(row);
+    });
+}
 
 // 메뉴 바깥을 클릭하면 드롭다운만 닫는다 — 이미 열어둔 패널들은 그대로
 // 둔다(위젯이니까 다른 곳을 눌렀다고 사라지면 안 된다).
@@ -1204,38 +1347,41 @@ usageLinkBtn.addEventListener('click', () => {
 });
 
 // ===================================================================
-// 새 프로젝트 만들기
+// 새 프로젝트 만들기 (+ §L 템플릿 선택)
 // Electron은 window.prompt()를 지원하지 않는다(호출해도 다이얼로그가 안 뜨고
 // 조용히 무시된다) — 화면에 직접 입력창을 보여주는 방식으로 처리한다.
 // ===================================================================
 function showNewProjectInput() {
   newProjectBtn.hidden = true;
-  newProjectInput.hidden = false;
+  newProjectRow.hidden = false;
   newProjectInput.value = '';
+  newProjectTemplate.value = '';
   newProjectInput.focus();
 }
 
 function hideNewProjectInput() {
-  newProjectInput.hidden = true;
+  newProjectRow.hidden = true;
   newProjectBtn.hidden = false;
+}
+
+// 입력창과 템플릿 select를 한 묶음(newProjectRow)으로 취급한다 — select를
+// 클릭하면 input이 blur되는데, 그걸 그냥 "바깥을 클릭했다"로 오인해서
+// 숨겨버리면 템플릿을 고르자마자 입력창이 사라지는 버그가 생긴다. 포커스가
+// 묶음 밖으로(relatedTarget이 newProjectRow 바깥) 나갈 때만 진짜로 닫는다.
+function handleNewProjectBlur(event) {
+  if (newProjectRow.contains(event.relatedTarget)) return;
+  hideNewProjectInput();
 }
 
 newProjectBtn.addEventListener('click', showNewProjectInput);
 
-newProjectInput.addEventListener('keydown', async (event) => {
-  if (event.key === 'Escape') {
-    hideNewProjectInput();
-    return;
-  }
-  if (event.key !== 'Enter') return;
-  event.preventDefault();
-
+async function submitNewProject() {
   const name = newProjectInput.value.trim();
   if (!name) {
     hideNewProjectInput();
     return;
   }
-  const result = await window.caelus.createProject(name);
+  const result = await window.caelus.createProject(name, newProjectTemplate.value || undefined);
   if (!result.created) {
     alert(result.reason || '폴더를 만들지 못했습니다.');
     return;
@@ -1245,9 +1391,20 @@ newProjectInput.addEventListener('keydown', async (event) => {
   await loadProjects();
   await loadHistory();
   refreshThreadStatus();
+}
+
+newProjectInput.addEventListener('keydown', async (event) => {
+  if (event.key === 'Escape') {
+    hideNewProjectInput();
+    return;
+  }
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  await submitNewProject();
 });
 
-newProjectInput.addEventListener('blur', hideNewProjectInput);
+newProjectInput.addEventListener('blur', handleNewProjectBlur);
+newProjectTemplate.addEventListener('blur', handleNewProjectBlur);
 
 // ===================================================================
 // 대화 스레드 연속성 — 상태 표시줄 / 새 대화 시작
@@ -1262,8 +1419,44 @@ async function refreshThreadStatus() {
   threadStatusEl.hidden = info.turnCount === 0 && !viewingThread;
   threadWarning.hidden = info.turnCount < LONG_THREAD_TURN_THRESHOLD;
   newThreadBtn.disabled = isBusy;
+  updateReassignSelect();
   return info;
 }
+
+// §L — 과거 스레드를 보고 있을 때만(재분류 대상이 명확할 때만) 다른
+// 프로젝트로 옮기는 선택창을 보여준다.
+function updateReassignSelect() {
+  if (!viewingThread || !viewingThread.threadId) {
+    reassignThreadSelect.hidden = true;
+    return;
+  }
+  const otherProjects = projectsCache.filter((p) => p !== viewingThread.project);
+  if (otherProjects.length === 0) {
+    reassignThreadSelect.hidden = true;
+    return;
+  }
+  reassignThreadSelect.innerHTML =
+    '<option value="">다른 프로젝트로 이동…</option>' +
+    otherProjects.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(projectLabel(p))}</option>`).join('');
+  reassignThreadSelect.hidden = false;
+}
+
+reassignThreadSelect.addEventListener('change', async () => {
+  const newProject = reassignThreadSelect.value;
+  if (!newProject || !viewingThread) return;
+  const { project: oldProject, threadId } = viewingThread;
+  const result = await window.caelus.reassignThread(oldProject, threadId, newProject);
+  if (!result.reassigned) {
+    alert('이동하지 못했습니다.');
+    reassignThreadSelect.value = '';
+    return;
+  }
+  activeProject = newProject;
+  viewingThread = { project: newProject, threadId };
+  await loadFavorites(); // 즐겨찾기 키도 같이 옮겨졌을 수 있으니 다시 불러옴
+  await loadHistory();
+  await refreshThreadStatus();
+});
 
 async function startNewThreadForProject(project) {
   if (isBusy) return;
@@ -1281,6 +1474,50 @@ async function startNewThreadForProject(project) {
 }
 
 newThreadBtn.addEventListener('click', () => startNewThreadForProject(activeProject));
+
+// §L — 긴 대화를 요약해서 새 스레드로 이어간다: (1) 지금 스레드에 요약을
+// 요청(--resume이라 전체 맥락을 보고 요약함), (2) 새 스레드로 전환,
+// (3) 그 요약을 새 스레드의 첫 메시지로 보내 맥락을 이어간다. sendPrompt를
+// 그대로 재사용하지 않는 이유: 요약 자체는 "재시도/취소" 같은 일반
+// 메시지 흐름과 달리 그 결과 텍스트를 다음 단계(새 스레드 시작 메시지)에
+// 다시 써야 해서 별도로 처리한다.
+summarizeContinueBtn.addEventListener('click', async () => {
+  if (isBusy) return;
+  if (!confirm('지금까지의 대화를 요약하고, 그 요약으로 새 대화를 시작할까요?')) return;
+
+  const summarizeRequest = '지금까지 나눈 대화 내용을 다음 대화에서 이어갈 수 있도록 핵심만 간결하게 요약해줘.';
+  addBubble('user', summarizeRequest);
+  setBusy(true);
+
+  let summaryText = null;
+  try {
+    const result = await window.caelus.sendCommand(summarizeRequest, currentMode, activeProject);
+    if (result.cancelled) {
+      addBubble('error', '요약 요청이 취소됐습니다.');
+      return;
+    }
+    summaryText = result.text;
+    addBubble('assistant', summaryText);
+  } catch (err) {
+    addBubble('error', err.message || String(err));
+    return;
+  } finally {
+    setBusy(false);
+    await loadHistory();
+    refreshThreadStatus();
+  }
+
+  if (!summaryText) return;
+
+  // 새 스레드로 전환 — 지금까지 기록은 사이드바에 그대로 남는다.
+  await window.caelus.startNewThread(activeProject);
+  viewingThread = null;
+  hideResumeBanner();
+  clearConversation();
+  await refreshThreadStatus();
+
+  await sendPrompt(`(이전 대화 요약)\n${summaryText}\n\n위 내용을 참고해서 계속 진행해줘.`);
+});
 
 // ===================================================================
 // 대화 내보내기
@@ -1328,10 +1565,21 @@ checkUpdateBtn.addEventListener('click', async () => {
 // ===================================================================
 function setBusy(busy) {
   isBusy = busy;
-  input.disabled = busy;
-  submitBtn.disabled = busy;
+  // §L — 메시지 큐잉을 위해 입력창/전송 버튼은 busy 중에도 막지 않는다.
+  // form submit 핸들러가 isBusy일 때 바로 보내지 않고 큐에 쌓는 식으로
+  // 처리한다(아래 messageQueue 참고) — tg-rename/tg-delete/h-delete/
+  // clearHistoryBtn처럼 store 상태를 직접 건드리는 액션들은 여전히
+  // isBusy 체크로 따로 막혀 있다.
   cancelBtn.hidden = !busy;
   newThreadBtn.disabled = busy;
+}
+
+// §L — 메시지 큐잉: 응답 대기 중에 보낸 메시지를 순서대로 쌓아뒀다가
+// 지금 요청이 끝나면 자동으로 이어서 보낸다.
+let messageQueue = [];
+
+function updateQueueIndicator() {
+  queueIndicatorEl.textContent = messageQueue.length > 0 ? `${messageQueue.length}개 대기 중` : '';
 }
 
 window.caelus.onStatus(({ state, taskId }) => {
@@ -1570,22 +1818,44 @@ async function sendPrompt(text) {
     setBusy(false);
     await loadHistory();
     refreshThreadStatus();
+    // §L — 대기 중이던 다음 메시지가 있으면 자동으로 이어서 보낸다. await는
+    // 안 한다 — 지금 이 sendPrompt 호출은 여기서 끝내고, 다음 메시지는
+    // 독립된 새 호출로 진행(setBusy(false)가 이미 실행됐으므로 재진입
+    // 가드에 안 걸림).
+    if (messageQueue.length > 0) {
+      const next = messageQueue.shift();
+      updateQueueIndicator();
+      sendPrompt(next);
+    }
   }
 }
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = input.value.trim();
-  if (!text || isBusy) return;
+  if (!text) return;
 
+  // 프로젝트 전환 명령은 큐잉 대상이 아니다 — Claude 호출 없이 즉시
+  // 로컬에서 처리되므로, 응답 대기 중이어도 바로 실행한다(단, 화면을
+  // 바꾸는 동작이라 진행 중인 요청과 뒤섞이지 않도록 isBusy면 무시).
   const switchTarget = matchProjectSwitchCommand(text);
   if (switchTarget) {
+    if (isBusy) return;
     input.value = '';
     await switchToProjectLocally(switchTarget);
     return;
   }
 
   input.value = '';
+
+  if (isBusy) {
+    // §L — 메시지 큐잉: 응답 대기 중에도 입력을 막지 않고, 지금 요청이
+    // 끝나면 자동으로 순서대로 보내지도록 쌓아둔다.
+    messageQueue.push(text);
+    updateQueueIndicator();
+    return;
+  }
+
   await sendPrompt(text);
 });
 

@@ -47,6 +47,15 @@
           <button type="button" class="os-menu-tool" data-panel-target="panel-presets" title="프롬프트 프리셋">
             <span class="omt-ic" aria-hidden="true">▣</span><span class="omt-label">프리셋</span>
           </button>
+          <button type="button" class="os-menu-tool" data-panel-target="panel-git" title="Git 상태/기록">
+            <span class="omt-ic" aria-hidden="true">◎</span><span class="omt-label">Git</span>
+          </button>
+          <button type="button" class="os-menu-tool" data-panel-target="panel-stats" title="사용 통계">
+            <span class="omt-ic" aria-hidden="true">▦</span><span class="omt-label">통계</span>
+          </button>
+          <button type="button" class="os-menu-tool" data-panel-target="panel-shortcuts" title="단축키 안내">
+            <span class="omt-ic" aria-hidden="true">⌨</span><span class="omt-label">단축키</span>
+          </button>
           <button id="settings-toggle" type="button" class="os-menu-tool" title="설정">
             <span class="omt-ic" aria-hidden="true">⚙</span><span class="omt-label">설정</span>
           </button>
@@ -87,9 +96,15 @@
         <section class="conversation-shell" aria-label="대화">
           <div id="thread-status" class="thread-status" hidden>
             <span id="thread-status-label" class="thread-status-label">📁 일반 대화</span>
+            <!-- §L — 과거 스레드를 보고 있을 때만(재분류 대상이 명확할 때만)
+                 나타나는 프로젝트 재분류 선택창. -->
+            <select id="reassign-thread-select" class="thread-reassign-select" hidden>
+              <option value="">다른 프로젝트로 이동…</option>
+            </select>
           </div>
           <div id="thread-warning" class="thread-warning" hidden>
-            대화가 길어졌습니다. 새 대화로 시작하면 속도와 정확도가 좋아질 수 있습니다.
+            <span>대화가 길어졌습니다. 새 대화로 시작하면 속도와 정확도가 좋아질 수 있습니다.</span>
+            <button id="summarize-continue-btn" class="text-btn" type="button">요약해서 새로 시작</button>
           </div>
           <div id="resume-banner" class="resume-banner" hidden>
             <span>이전 대화 기록을 보고 있습니다.</span>
@@ -103,6 +118,9 @@
           <label class="sr-only" for="command-input">명령 입력</label>
           <input id="command-input" class="command-input" type="text"
                  placeholder="작업 내용을 입력하세요...  Enter 전송  /  Esc 취소" autocomplete="off" />
+          <!-- §L — 메시지 큐잉: 응답 대기 중에도 입력을 막지 않고 다음
+               메시지를 여기 쌓아둔다(비어 있으면 안 보임). -->
+          <span id="queue-indicator" class="queue-indicator" aria-live="polite"></span>
           <button type="button" id="cancel-btn" class="cancel-btn" hidden>중지</button>
           <button type="submit" class="command-submit">전송</button>
         </form>
@@ -136,9 +154,21 @@
             <span class="tree-section-title">작업 프로젝트</span>
             <button id="new-project-btn" class="icon-btn small" type="button" title="새 프로젝트 만들기" aria-label="새 프로젝트 만들기">+</button>
           </div>
-          <label class="sr-only" for="new-project-input">새 프로젝트 이름</label>
-          <input id="new-project-input" class="new-project-input" type="text"
-                 placeholder="새 프로젝트 이름 입력 후 Enter" autocomplete="off" hidden />
+          <!-- §L — 새 프로젝트 템플릿. 입력창 + 템플릿 선택을 한 묶음으로
+               숨기고/보여준다(select로 포커스가 옮겨가도 "바깥 클릭"으로
+               오인해 닫히지 않도록 renderer.js에서 relatedTarget으로 확인). -->
+          <div id="new-project-row" class="new-project-row" hidden>
+            <label class="sr-only" for="new-project-input">새 프로젝트 이름</label>
+            <input id="new-project-input" class="new-project-input" type="text"
+                   placeholder="새 프로젝트 이름 입력 후 Enter" autocomplete="off" />
+            <label class="sr-only" for="new-project-template">프로젝트 템플릿</label>
+            <select id="new-project-template" class="new-project-template">
+              <option value="">빈 폴더</option>
+              <option value="node">Node.js</option>
+              <option value="python">Python</option>
+              <option value="static">정적 웹사이트</option>
+            </select>
+          </div>
           <div id="project-groups" class="tree-groups"></div>
 
           <div class="tree-section-header secondary-section">
@@ -181,6 +211,8 @@
       <div class="floating-panel-head">
         <span>작업 공간</span>
         <span class="panel-code">LOCAL WORKSPACE</span>
+        <!-- §L — 활성 프로젝트 폴더 하나로만 범위를 좁힌 OS 탐색기 연동. -->
+        <button type="button" id="open-explorer-btn" class="icon-btn small" title="탐색기에서 열기" aria-label="프로젝트 폴더를 탐색기에서 열기">⧉</button>
         <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
       </div>
       <div class="floating-panel-body">
@@ -216,6 +248,57 @@
       </div>
     </div>
 
+    <!-- §L — Git 상태/커밋 이력 + diff 뷰어. §I의 코드 모드 자동 스냅샷이
+         쌓아둔 커밋들을 조회만 한다(새로 커밋을 만들지 않음). -->
+    <div id="panel-git" class="floating-panel command-card" hidden aria-label="Git 상태와 기록">
+      <div class="floating-panel-head">
+        <span>Git</span>
+        <span class="panel-code">SNAPSHOT HISTORY</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <div id="git-summary" class="git-summary"></div>
+        <div id="git-log" class="git-log"></div>
+        <div id="git-diff" class="workspace-preview" hidden>
+          <div class="workspace-preview-head">
+            <span id="git-diff-title" class="workspace-preview-name"></span>
+            <button type="button" id="git-diff-close" class="icon-btn small" title="닫기" aria-label="diff 보기 닫기">✕</button>
+          </div>
+          <pre id="git-diff-content" class="workspace-preview-content"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- §L — 로컬 사용 통계. 새 데이터 수집 없이 이미 store.js에 있는
+         tasks/logs를 renderer에서 집계만 한다. -->
+    <div id="panel-stats" class="floating-panel command-card" hidden aria-label="사용 통계">
+      <div class="floating-panel-head">
+        <span>사용 통계</span>
+        <span class="panel-code">LOCAL USAGE</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <div id="stats-summary" class="telemetry-grid"></div>
+        <div id="stats-by-project" class="stats-by-project"></div>
+      </div>
+    </div>
+
+    <!-- §L — 단축키 안내. 순수 정적 UI(상태 없음). -->
+    <div id="panel-shortcuts" class="floating-panel command-card" hidden aria-label="단축키 안내">
+      <div class="floating-panel-head">
+        <span>단축키</span>
+        <span class="panel-code">KEYBOARD</span>
+        <button type="button" class="floating-panel-close" data-close-panel title="닫기" aria-label="패널 닫기">✕</button>
+      </div>
+      <div class="floating-panel-body">
+        <ul class="shortcut-list">
+          <li><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>K</kbd><span>대화 기록 검색으로 이동</span></li>
+          <li><kbd>Enter</kbd><span>입력창에서 메시지 전송</span></li>
+          <li><kbd>Esc</kbd><span>메뉴/패널 닫기 → 진행 중이면 취소 → 입력창 비우기(순서대로)</span></li>
+        </ul>
+      </div>
+    </div>
+
     <div id="settings-panel" class="floating-panel command-card" hidden aria-label="설정">
       <div class="floating-panel-head">
         <span>설정</span>
@@ -239,6 +322,21 @@
           <span>업데이트 확인</span>
           <span id="update-status" class="settings-value"></span>
         </button>
+        <div class="settings-divider"></div>
+        <!-- §L — 모델 선택. ⚠️ 설치된 Claude Code CLI 버전이 --model
+             플래그와 이 값들을 실제로 지원하는지 실기기 검증 전이라,
+             "CLI 기본값"이 기본 선택지다(명시적으로 고르기 전까진 지금과
+             동일하게 동작). -->
+        <label class="settings-item settings-select-row" for="model-select">
+          <span>모델</span>
+          <select id="model-select" class="settings-select">
+            <option value="">CLI 기본값</option>
+            <option value="sonnet">Sonnet</option>
+            <option value="opus">Opus</option>
+            <option value="haiku">Haiku</option>
+          </select>
+        </label>
+        <p class="settings-note">⚠️ 설치된 Claude Code CLI가 이 플래그를 지원하는지 실기기 확인 전입니다 — 오류가 나면 "CLI 기본값"으로 되돌리세요.</p>
         <div class="settings-divider"></div>
         <div class="settings-persona">
           <label for="persona-input" class="settings-persona-label">

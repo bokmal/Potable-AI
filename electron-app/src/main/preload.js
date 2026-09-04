@@ -13,9 +13,10 @@ contextBridge.exposeInMainWorld('caelus', {
   openUsagePage: () => ipcRenderer.invoke('caelus:open-usage-page'),
 
   listProjects: () => ipcRenderer.invoke('caelus:list-projects'),
-  createProject: (name) => ipcRenderer.invoke('caelus:create-project', name),
+  createProject: (name, template) => ipcRenderer.invoke('caelus:create-project', name, template),
   renameProject: (oldName, newName) => ipcRenderer.invoke('caelus:rename-project', oldName, newName),
   deleteProject: (name) => ipcRenderer.invoke('caelus:delete-project', name),
+  openProjectFolder: (project) => ipcRenderer.invoke('caelus:open-project-folder', project),
 
   getPersona: (project) => ipcRenderer.invoke('caelus:get-persona', project),
   setPersona: (project, text) => ipcRenderer.invoke('caelus:set-persona', project, text),
@@ -33,10 +34,18 @@ contextBridge.exposeInMainWorld('caelus', {
   getFavorites: () => ipcRenderer.invoke('caelus:get-favorites'),
   toggleFavorite: (project, threadId) => ipcRenderer.invoke('caelus:toggle-favorite', project, threadId),
 
+  getModel: () => ipcRenderer.invoke('caelus:get-model'),
+  setModel: (model) => ipcRenderer.invoke('caelus:set-model', model),
+
+  getGitInfo: (project) => ipcRenderer.invoke('caelus:get-git-info', project),
+  getCommitDiff: (project, hash) => ipcRenderer.invoke('caelus:get-commit-diff', project, hash),
+
   getThreadInfo: (project) => ipcRenderer.invoke('caelus:get-thread-info', project),
   startNewThread: (project) => ipcRenderer.invoke('caelus:new-thread', project),
   resumeThread: (project, threadId) => ipcRenderer.invoke('caelus:resume-thread', project, threadId),
   renameTask: (taskId, newTitle) => ipcRenderer.invoke('caelus:rename-task', taskId, newTitle),
+  reassignThread: (oldProject, threadId, newProject) =>
+    ipcRenderer.invoke('caelus:reassign-thread', oldProject, threadId, newProject),
 
   copyText: (text) => ipcRenderer.invoke('caelus:copy-text', text),
   exportConversation: (content, suggestedName) =>

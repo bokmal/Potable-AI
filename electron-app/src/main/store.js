@@ -41,6 +41,7 @@ class Store {
         if (!this.data.activeThreads) this.data.activeThreads = {};
         if (!this.data.presets) this.data.presets = [];
         if (!this.data.favorites) this.data.favorites = [];
+        if (this.data.model === undefined) this.data.model = null;
         return;
       } catch (err) {
         // 파일이 깨져 있어도(예: USB가 저장 도중 뽑힘) 조용히 버리지 않는다.
@@ -81,6 +82,10 @@ class Store {
       // 배열 — 스레드 단위 식별자가 이미 이 두 값의 조합이라(threadId가
       // 없는 옛 1회성 기록은 즐겨찾기 대상에서 제외) 별도 id 체계 불필요.
       favorites: [],
+      // §L — 선택한 모델(claudeBridge.js가 --model로 전달). null이면 CLI
+      // 기본값을 그대로 쓴다. ⚠️ 설치된 CLI 버전이 이 플래그/값을 실제로
+      // 지원하는지 실기기 검증 필요.
+      model: null,
     };
   }
 
@@ -180,6 +185,38 @@ class Store {
     this._save();
   }
 
+  // §L — 대화 스레드 하나를 다른 프로젝트로 재분류한다. renameProjectInTasks
+  // 와 달리 그 프로젝트 전체가 아니라 threadId 하나에 속한 task들만 옮긴다.
+  reassignThreadProject(oldProject, threadId, newProject) {
+    if (!threadId) return false;
+    let moved = false;
+    this.data.tasks.forEach((t) => {
+      if ((t.project || 'general') === oldProject && t.claude_session_id === threadId) {
+        t.project = newProject;
+        moved = true;
+      }
+    });
+    if (!moved) return false;
+
+    // 옮긴 스레드가 그 프로젝트의 "지금 활성 스레드"였다면 포인터도 같이
+    // 옮긴다 — 안 그러면 이전 프로젝트엔 활성 스레드가 없는데 포인터만
+    // 남고, 새 프로젝트는 활성 스레드가 있는데도 모르는 채로 남는다.
+    if (this.data.activeThreads[oldProject] === threadId) {
+      delete this.data.activeThreads[oldProject];
+      this.data.activeThreads[newProject] = threadId;
+    }
+
+    // 즐겨찾기 키("project::threadId")도 같이 옮긴다.
+    const oldKey = this._favKey(oldProject, threadId);
+    const favIdx = this.data.favorites.indexOf(oldKey);
+    if (favIdx !== -1) {
+      this.data.favorites[favIdx] = this._favKey(newProject, threadId);
+    }
+
+    this._save();
+    return true;
+  }
+
   updateTaskStatus(taskId, status) {
     const task = this.data.tasks.find((t) => t.task_id === taskId);
     if (task) {
@@ -228,6 +265,18 @@ class Store {
     // 세션을 시작하므로 사용자 입장에선 기억이 사라진 것과 동일하다).
     this.data.activeThreads = {};
     this._save();
+  }
+
+  // --- 모델 선택(§L) ---
+  getModel() {
+    return this.data.model;
+  }
+
+  setModel(model) {
+    const ALLOWED_MODELS = ['sonnet', 'opus', 'haiku'];
+    this.data.model = ALLOWED_MODELS.includes(model) ? model : null;
+    this._save();
+    return this.data.model;
   }
 
   // --- 즐겨찾기(고정) 대화 스레드(§I) ---

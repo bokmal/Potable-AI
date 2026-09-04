@@ -43,13 +43,17 @@ class ClaudeBridge {
    *   관련 주석과 같은 이유).
    * @param {boolean} [opts.resume] true면 --resume(기존 스레드 이어가기),
    *   false/생략이면 --session-id(그 uuid로 새 스레드 시작)로 넘긴다.
+   * @param {string} [opts.model] §L — 지정하면 --model로 넘긴다(예: 'sonnet',
+   *   'opus', 'haiku'). 생략하면 CLI 기본값을 그대로 쓴다. ⚠️ 설치된 CLI
+   *   버전이 이 플래그와 값들을 실제로 지원하는지는 실기기 검증 필요 —
+   *   렌더러의 모델 선택 UI에도 같은 경고가 붙어 있다.
    * @param {(chunk: string) => void} [opts.onChunk] stdout 스트리밍 콜백
    * @param {(child: import('child_process').ChildProcess) => void} [opts.onSpawn]
    *   spawn 직후 자식 프로세스를 넘겨준다 — 호출자가 취소(child.kill())할 수
    *   있도록 참조를 잡아두는 용도.
    * @returns {Promise<string>} 전체 응답 텍스트
    */
-  send({ prompt, mode, cwd, sessionId, resume, onChunk, onSpawn } = {}) {
+  send({ prompt, mode, cwd, sessionId, resume, model, onChunk, onSpawn } = {}) {
     return new Promise((resolve, reject) => {
       // 사용자 프롬프트는 명령줄 인자가 아니라 stdin으로 전달한다(아래에서
       // child.stdin에 씀). Windows에서 이 프로세스는 shell:true로 cmd.exe를
@@ -67,6 +71,11 @@ class ClaudeBridge {
       if (sessionId) {
         if (resume) args.push('--resume', sessionId);
         else args.push('--session-id', sessionId);
+      }
+      // model은 main.js가 이미 알려진 값 목록(허용 목록)으로만 걸러서
+      // 넘긴다 — 여기서는 그냥 있으면 붙인다.
+      if (model) {
+        args.push('--model', model);
       }
 
       // Claude Code CLI의 인증/세션 저장 위치를 USB 내부(claude-home)로 고정한다.
