@@ -112,24 +112,19 @@ applyTheme(currentTheme);
 themeToggle.addEventListener('click', () => applyTheme(currentTheme === 'light' ? 'dark' : 'light'));
 
 // ===================================================================
-// 좌상단 메뉴(os-menu) + 떠 있는 패널(.floating-panel) — 프로젝트/작업 상태/
-// 작업 공간/설정은 항상 화면에 있는 게 아니라, 이 메뉴에서 열어야만 나타나는
-// 독립된 창이다. 여러 개를 동시에 열어둘 수 있고(윈도우 창처럼), 닫는 건
-// 각 패널의 ✕ 버튼뿐이다 — 설정 패널도 예전처럼 바깥을 클릭하면 자동으로
-// 닫히던 방식을 버리고 다른 패널과 동일하게 동작시켜, "떠 있는 위젯"이라는
-// 느낌을 전부 통일했다.
+// 좌상단 메뉴(os-menu) + 좌측에 도킹되는 패널(.floating-panel) — 프로젝트/
+// 작업 상태/작업 공간/설정은 항상 화면에 있는 게 아니라, 이 메뉴에서
+// 열어야만 나타나는 독립된 창이다. 여러 개를 동시에 열어둘 수 있고, 전부
+// 화면 왼쪽(.panel-dock) 한 곳에 세로로 쌓인다 — 자유롭게 드래그해서
+// 어디로든 옮기던 이전 방식은 버렸다(각기 다른 기본 위치가 서로 겹치거나
+// 메뉴와 겹치는 문제, z-index가 한없이 올라가는 문제, 드래그 중 창 밖에서
+// 마우스를 놓으면 안 끝나는 문제가 전부 이 방식 때문이었다 — 자유 위치
+// 자체를 없애면 그 문제들이 설계상 발생할 수 없다). 닫는 건 각 패널의
+// ✕ 버튼뿐이다 — 설정 패널도 다른 패널과 동일하게 동작한다.
 // ===================================================================
-let floatingPanelZ = 30; // .floating-panel 기본 z-index(30)보다 항상 위로
-
-function bringPanelToFront(panel) {
-  floatingPanelZ += 1;
-  panel.style.zIndex = String(floatingPanelZ);
-}
-
 function openPanel(panel) {
   if (!panel) return;
   panel.hidden = false;
-  bringPanelToFront(panel);
 }
 
 function closeOsMenu() {
@@ -162,54 +157,10 @@ document.addEventListener('click', (event) => {
   }
 });
 
-// 패널 어딘가를 클릭(드래그 시작 포함)하면 그 패널을 맨 앞으로 — 여러 창이
-// 겹쳤을 때 마지막으로 만진 게 위로 오는, 흔한 "OS 창" 동작.
-document.querySelectorAll('.floating-panel').forEach((panel) => {
-  panel.addEventListener('mousedown', () => bringPanelToFront(panel));
-
-  panel.querySelectorAll('[data-close-panel]').forEach((closeBtn) => {
-    closeBtn.addEventListener('click', () => {
-      panel.hidden = true;
-    });
-  });
-
-  const head = panel.querySelector('.floating-panel-head');
-  if (!head) return;
-  let dragging = false;
-  let startX = 0;
-  let startY = 0;
-  let startLeft = 0;
-  let startTop = 0;
-
-  head.addEventListener('mousedown', (event) => {
-    if (event.target.closest('.floating-panel-close')) return;
-    dragging = true;
-    // 지금까지 CSS(top/left 또는 right)로 잡혀 있던 위치를 드래그 시작
-    // 순간의 실제 화면 좌표(px)로 고정해둔다 — 안 그러면 #settings-panel처럼
-    // right로 위치를 잡는 패널은 mousemove로 left를 바꿔도 움직이지 않는다.
-    const rect = panel.getBoundingClientRect();
-    panel.style.left = `${rect.left}px`;
-    panel.style.top = `${rect.top}px`;
-    panel.style.right = 'auto';
-    startX = event.clientX;
-    startY = event.clientY;
-    startLeft = rect.left;
-    startTop = rect.top;
-    event.preventDefault();
-  });
-
-  document.addEventListener('mousemove', (event) => {
-    if (!dragging) return;
-    const dx = event.clientX - startX;
-    const dy = event.clientY - startY;
-    const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
-    const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight);
-    panel.style.left = `${Math.min(Math.max(0, startLeft + dx), maxLeft)}px`;
-    panel.style.top = `${Math.min(Math.max(0, startTop + dy), maxTop)}px`;
-  });
-
-  document.addEventListener('mouseup', () => {
-    dragging = false;
+document.querySelectorAll('.floating-panel [data-close-panel]').forEach((closeBtn) => {
+  closeBtn.addEventListener('click', () => {
+    const panel = closeBtn.closest('.floating-panel');
+    if (panel) panel.hidden = true;
   });
 });
 
@@ -1092,26 +1043,37 @@ document.addEventListener('keydown', (event) => {
 // ===================================================================
 const fullscreenToggle = document.getElementById('fullscreen-toggle');
 if (fullscreenToggle) {
+  // 다른 .os-menu-tool 버튼들과 마찬가지로 아이콘(.omt-ic)과 라벨(.omt-label)이
+  // 분리된 자식 span이다 — 버튼 전체의 textContent를 통째로 덮어쓰면 이
+  // 구조 자체가 사라져서(레이아웃이 깨지고 aria-hidden 처리된 아이콘 글자가
+  // 그대로 텍스트로 노출됨) 라벨 span 하나만 골라 바꾼다.
+  const fullscreenLabel = fullscreenToggle.querySelector('.omt-label');
+  function setFullscreenLabel(active) {
+    const text = active ? '창 모드로' : '전체화면';
+    if (fullscreenLabel) fullscreenLabel.textContent = text;
+    fullscreenToggle.title = active ? '창 모드로 전환' : '전체화면 HUD';
+  }
+
   fullscreenToggle.addEventListener('click', async () => {
     closeOsMenu();
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         document.body.classList.add('fullscreen-hud');
-        fullscreenToggle.textContent = '창 모드로 ⛶';
+        setFullscreenLabel(true);
       } else {
         await document.exitFullscreen();
       }
     } catch {
       document.body.classList.toggle('fullscreen-hud');
-      fullscreenToggle.textContent = document.body.classList.contains('fullscreen-hud') ? '창 모드로 ⛶' : '전체화면 HUD ⛶';
+      setFullscreenLabel(document.body.classList.contains('fullscreen-hud'));
     }
   });
 
   document.addEventListener('fullscreenchange', () => {
     const active = Boolean(document.fullscreenElement);
     document.body.classList.toggle('fullscreen-hud', active);
-    fullscreenToggle.textContent = active ? '창 모드로 ⛶' : '전체화면 HUD ⛶';
+    setFullscreenLabel(active);
   });
 }
 

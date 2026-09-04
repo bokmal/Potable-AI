@@ -245,27 +245,46 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .omt-ic { font-size: 15px; color: var(--idle); }
 
 /* --- 떠 있는 창들(프로젝트/상태/작업 공간/설정) — 메뉴에서 열고 닫으며,
-   여러 개를 동시에 띄워둘 수 있고 헤더를 드래그해서 옮길 수 있다. 실제
-   위치 이동/맨 앞으로 가져오기는 renderer.js가 담당하고, 여기서는 뼈대와
-   기본(첫 오픈) 위치만 정의한다. */
-.floating-panel {
+   여러 개를 동시에 띄워둘 수 있다. 전부 .panel-dock 하나(화면 왼쪽, 메뉴
+   바로 아래)에 세로로 쌓인다 — 자유 드래그/각자 다른 기본 위치는 없앴다
+   (그게 메뉴와 겹치거나, 패널끼리 겹치거나, z-index가 한없이 올라가거나,
+   드래그 중 창 밖에서 마우스를 놓으면 안 끝나는 문제들의 원인이었다 —
+   애초에 자유 위치가 없으면 그 문제들은 설계상 발생할 수 없다). 닫는 건
+   각 패널의 ✕ 버튼뿐이다. */
+.panel-dock {
   position: fixed;
-  z-index: 30;
+  top: 70px;
+  left: 18px;
+  z-index: 40; /* .os-menu(50)보다는 낮게 — 메뉴가 항상 맨 위 */
   width: 300px;
-  max-height: min(72vh, 540px);
+  max-height: calc(100vh - 90px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  /* 패널 사이 빈틈(gap)에선 클릭이 그 뒤(코어/대화창)로 그대로 통과해야
+     한다 — 컨테이너 자체는 클릭을 안 먹고, 실제 패널(.floating-panel)만
+     받는다. */
+  pointer-events: none;
+}
+.floating-panel {
+  position: static;
+  z-index: auto;
+  width: 100%;
+  flex: 0 0 auto;
+  max-height: min(46vh, 420px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  pointer-events: auto;
 }
 .floating-panel[hidden] { display: none; }
 .floating-panel-head {
   display: flex; align-items: center; gap: 8px;
   padding: 12px 8px 12px 14px;
   border-bottom: 1px solid var(--line);
-  cursor: grab;
   user-select: none;
 }
-.floating-panel-head:active { cursor: grabbing; }
 .floating-panel-head .panel-code { margin-left: auto; }
 .floating-panel-close {
   border: none; background: transparent; color: var(--text-faint); cursor: pointer;
@@ -273,11 +292,6 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .floating-panel-close:hover { color: var(--error); background: rgba(255,100,125,0.1); }
 .floating-panel-body { min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-
-#panel-projects { top: 70px; left: 18px; }
-#panel-status { top: 70px; left: 336px; }
-#panel-workspace { top: 70px; left: 654px; }
-#settings-panel.floating-panel { top: 70px; right: 18px; left: auto; width: 260px; }
 
 .icon-btn, .hud-btn, .text-btn, .preset-btn, .mode-btn, .cancel-btn, .command-submit, .settings-item, .tg-action, .h-delete, .h-rename, .bubble-copy {
   border: 1px solid var(--line);
@@ -293,6 +307,10 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 }
 .icon-btn { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 14px; }
 .icon-btn.small { width: 30px; height: 30px; border-radius: 10px; font-weight: 800; color: var(--idle); }
+/* showNewProjectInput()이 #new-project-btn을 .hidden = true로 감추는데, 위
+   display:grid가 [hidden]의 기본 display:none을 덮어써서 안 사라지고
+   그대로 남아있던 버그 — 다른 hidden 토글 엘리먼트들과 같은 원인. */
+.icon-btn[hidden] { display: none; }
 .hud-btn, .text-btn, .preset-btn, .cancel-btn, .command-submit { border-radius: 999px; }
 .hud-btn { min-height: 38px; padding: 0 14px; font-size: 12px; font-weight: 800; }
 .text-btn { min-height: 32px; padding: 0 12px; color: var(--idle); font-size: 12px; }
@@ -358,6 +376,10 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .tree-group-actions { display: inline-flex; gap: 5px; }
 .tg-action, .h-delete, .h-rename { width: 26px; height: 26px; border-radius: 9px; display: inline-grid; place-items: center; padding: 0; }
 .tree-group-children { display: grid; gap: 7px; margin: 0; padding: 0 0 0 10px; list-style: none; border-left: 1px solid rgba(93,232,255,0.12); }
+/* toggleGroupCollapsed()가 접을 때 .hidden = true를 쓰는데, 위 display:grid가
+   [hidden]의 기본 display:none을 덮어써서 캐럿은 회전해도 실제 하위 목록은
+   안 접히던 버그. */
+.tree-group-children[hidden] { display: none; }
 .history-item {
   position: relative;
   display: grid;
@@ -382,7 +404,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .telemetry-grid span { display: block; color: var(--text-faint); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; margin-bottom: 5px; }
 .telemetry-grid strong { color: var(--text); font-size: 13px; }
 
-/* #settings-panel은 이제 .floating-panel과 같은 뼈대(위치/그림자/드래그)를
+/* #settings-panel은 .panel-dock 안의 다른 .floating-panel과 같은 뼈대를
    쓴다 — 안쪽 콘텐츠 스타일만 여기 남긴다. */
 .settings-item { width: 100%; min-height: 42px; padding: 0 11px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
 .settings-value { color: var(--idle); font-family: var(--font-mono); font-size: 10px; }
@@ -546,7 +568,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .command-bar { grid-template-columns: 1fr; display: grid; align-items: stretch; }
   .hud-btn, .text-btn { width: 100%; }
   .os-menu-list { width: calc(100vw - 52px); max-width: 300px; }
-  .floating-panel { width: calc(100vw - 36px); max-width: 340px; }
+  .panel-dock { width: calc(100vw - 36px); max-width: 340px; }
 }
 
 /* =====================================================================

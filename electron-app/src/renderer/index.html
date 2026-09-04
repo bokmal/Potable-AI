@@ -39,16 +39,16 @@
         <div class="os-menu-divider"></div>
         <div class="os-menu-tools">
           <button type="button" class="os-menu-tool" data-panel-target="panel-status" title="작업 상태">
-            <span class="omt-ic" aria-hidden="true">◈</span>상태
+            <span class="omt-ic" aria-hidden="true">◈</span><span class="omt-label">상태</span>
           </button>
           <button type="button" class="os-menu-tool" data-panel-target="panel-workspace" title="작업 공간">
-            <span class="omt-ic" aria-hidden="true">▤</span>작업공간
+            <span class="omt-ic" aria-hidden="true">▤</span><span class="omt-label">작업공간</span>
           </button>
           <button id="settings-toggle" type="button" class="os-menu-tool" title="설정">
-            <span class="omt-ic" aria-hidden="true">⚙</span>설정
+            <span class="omt-ic" aria-hidden="true">⚙</span><span class="omt-label">설정</span>
           </button>
           <button id="fullscreen-toggle" type="button" class="os-menu-tool" title="전체화면 HUD">
-            <span class="omt-ic" aria-hidden="true">⛶</span>전체화면
+            <span class="omt-ic" aria-hidden="true">⛶</span><span class="omt-label">전체화면</span>
           </button>
         </div>
       </div>
@@ -97,7 +97,11 @@
       </div>
     </main>
 
-    <!-- 아래는 전부 기본 숨김 — 메뉴에서 열기 전까지는 화면에 없다. -->
+    <!-- 아래는 전부 기본 숨김 — 메뉴에서 열기 전까지는 화면에 없다. 열리는
+         패널은 전부 이 좌측 도킹 영역(.panel-dock) 안에 세로로 쌓인다(자유
+         드래그 없음, 항상 이 자리). 여러 개를 동시에 열어둘 수 있고, 닫는
+         건 각 패널의 ✕ 버튼뿐이다. -->
+    <div class="panel-dock" aria-label="열린 패널">
     <div id="panel-projects" class="floating-panel command-card" hidden aria-label="프로젝트와 대화 기록">
       <div class="floating-panel-head">
         <span>프로젝트</span>
@@ -197,6 +201,7 @@
         </button>
         <p class="settings-note">기존 Claude Code 실행, 프로젝트 저장, IPC 흐름은 그대로이고 화면 레이어만 바뀌었습니다.</p>
       </div>
+    </div>
     </div>
   </div>
 
