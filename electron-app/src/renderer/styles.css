@@ -1297,3 +1297,270 @@ body[data-ui-phase="active"] .main.command-center {
 :root[data-theme="light"] .panel-code {
   color: var(--idle);
 }
+
+/* ===================================================================
+   CAELUS FUTURE MENU & CHAT UI PATCH (2차)
+   - 메뉴 / floating panel / 대화창 / 입력창 다듬기
+   - 기존 미니멀 구조 유지, 좌우 고정 사이드바/오른쪽 대시보드 없음
+
+   실제 프로젝트 셀렉터에 맞춘 매핑:
+   - 요청받은 .message/.chat-message/.conversation-item/.turn/[data-role]
+     는 이 코드베이스에 없음 — 실제 메시지 엘리먼트는 renderer.js의
+     addBubble()이 만드는 .bubble/.bubble.user/.bubble.assistant/
+     .bubble.system 이라서 그쪽에 매핑한다(JS 보조 코드 불필요).
+   - .os-menu-head/.brand-name/.floating-panel-head h3 등도 마크업에
+     없어 실제 구조(.floating-panel-head > span 첫 번째 등)에 맞춘다.
+
+   테마 처리: 1차 패치에서 겪은 것과 같은 문제(하드코딩된 어두운 배경이
+   라이트 테마의 기존 톤 기반 룩을 덮어써 글자 대비가 무너지는 문제)를
+   반복하지 않기 위해, 불투명도가 높아 실제로 테마 대비에 영향을 주는
+   배경/글자색 규칙은 :root:not([data-theme="light"])로 다크 전용으로
+   묶고, 그 아래에 같은 디자인 언어(유리+미세 글로우)를 라이트 테마
+   토큰(--panel/--line/--idle 등)으로 다시 표현한다. 아주 옅은(10%
+   미만) 장식용 틴트/그림자는 두 테마 모두에서 무해해서 공통으로 둔다.
+   =================================================================== */
+
+:root {
+  --caelus-line-soft: rgba(107, 238, 255, 0.11);
+  --caelus-line-mid: rgba(107, 238, 255, 0.20);
+  --caelus-line-strong: rgba(107, 238, 255, 0.34);
+}
+
+/* ---------------------------------------------------
+   상단 메뉴 트리거 — 유리 + 얇은 라인 + 은은한 글로우
+--------------------------------------------------- */
+.os-menu-trigger {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+.os-menu-trigger:hover { transform: translateY(-1px); }
+.os-menu-trigger-label { position: relative; z-index: 1; }
+
+:root:not([data-theme="light"]) .os-menu-trigger:hover {
+  border-color: var(--caelus-line-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 28px rgba(107, 238, 255, 0.10);
+}
+/* 트리거 표면 위 아주 옅은 유리 하이라이트 — 알파가 낮아 두 테마 모두
+   무해하다. */
+.os-menu-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 12%, rgba(107,238,255,0.06) 20%, transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), transparent 32%);
+  opacity: 0.75;
+}
+
+:root[data-theme="light"] .os-menu-trigger:hover {
+  border-color: var(--line-hot);
+  box-shadow: var(--shadow-float), 0 0 20px rgba(0,168,210,0.14);
+}
+
+/* ---------------------------------------------------
+   메뉴 드롭다운 — 이미 1차에서 강한 대비로 다시 도장한 상태라(진한
+   테두리 + 상단 액센트 띠) 배경/테두리는 유지하고, 안쪽에 옅은 이중
+   프레임만 더해 "홀로그램 제어 패널" 느낌을 보강한다. 기존 ::before는
+   상단 액센트 띠가 쓰고 있으므로 ::after를 쓴다. */
+.os-menu-list::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: calc(16px - 6px);
+  border: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.menu-new,
+.os-menu-item,
+.os-menu-tool {
+  transition:
+    transform 170ms ease,
+    border-color 170ms ease,
+    background 170ms ease,
+    box-shadow 170ms ease;
+}
+.menu-new:hover,
+.os-menu-item:hover,
+.os-menu-tool:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(107,238,255,0.07);
+}
+
+:root:not([data-theme="light"]) .omt-ic {
+  color: rgba(171, 245, 255, 0.9);
+  text-shadow: 0 0 12px rgba(107,238,255,0.28);
+}
+
+/* ---------------------------------------------------
+   floating panel — 유리 + 미세 glow, 1차보다 한 단계 더 정제
+--------------------------------------------------- */
+:root:not([data-theme="light"]) .floating-panel {
+  background:
+    linear-gradient(145deg, rgba(5, 17, 30, 0.94), rgba(7, 24, 41, 0.86));
+}
+.floating-panel-head {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+}
+/* 패널 제목(.floating-panel-head 안 첫 번째 span)이 올드하게 보이지
+   않도록 자간/색만 정리 — 마크업엔 strong/h3가 없어 실제 구조(첫 번째
+   span)에 맞춘다. */
+.floating-panel-head > span:first-child {
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+.floating-panel-close {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.02);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+.floating-panel-close:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-hot);
+}
+:root:not([data-theme="light"]) .floating-panel-close:hover {
+  background: rgba(107,238,255,0.08);
+}
+:root[data-theme="light"] .floating-panel-close:hover {
+  background: var(--idle-soft);
+}
+
+/* ---------------------------------------------------
+   대화창 — 유리 패널 + 은은한 스캔라인 텍스처(알파가 아주 낮아
+   두 테마 모두 무해). 메시지 카드는 실제 마크업인 .bubble류에 매핑.
+--------------------------------------------------- */
+.conversation-shell {
+  position: relative;
+  overflow: hidden;
+}
+:root:not([data-theme="light"]) .conversation-shell {
+  border-radius: calc(var(--radius-xl, 24px) + 2px);
+  background: linear-gradient(180deg, rgba(8, 21, 35, 0.62), rgba(5, 14, 24, 0.44));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), inset 0 0 40px rgba(107,238,255,0.02);
+  backdrop-filter: blur(16px);
+}
+.conversation-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.018), transparent 22%),
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 6px);
+  opacity: 0.45;
+}
+.conversation-shell > * { position: relative; z-index: 1; }
+
+/* 메시지 카드 — 실제 마크업(.bubble)에 같은 디자인 의도(유리 카드 +
+   얇은 cyan edge, 사용자=파랑 계열/AI=더 어두운 유리+cyan edge)를
+   적용. 기존 .bubble-head/.bubble-content 안쪽 여백은 그대로 두고
+   테두리/배경/그림자만 다듬는다 — 카드가 과하게 두꺼워지지 않도록. */
+.bubble {
+  box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+}
+.bubble.user {
+  border-color: rgba(74, 160, 255, 0.28);
+  background: linear-gradient(135deg, rgba(29,118,255,0.14), rgba(107,238,255,0.05));
+}
+.bubble.assistant {
+  border-color: rgba(107,238,255,0.16);
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(107,238,255,0.035));
+}
+/* 시스템/상태 메시지 — 더 작은 보조 텍스트 느낌. 글자색은 라이트
+   테마에서 대비가 무너지지 않도록 다크 전용으로만 별도 지정하고,
+   라이트 테마는 기존 var(--text-soft) 그대로 둔다. */
+.bubble.system {
+  border-style: dashed;
+  border-color: rgba(255,157,74,0.20);
+  background: linear-gradient(135deg, rgba(255,157,74,0.08), rgba(255,255,255,0.02));
+}
+:root:not([data-theme="light"]) .bubble.system {
+  color: #c7d8e1;
+}
+:root:not([data-theme="light"]) .bubble pre {
+  background: rgba(2, 10, 18, 0.76);
+  box-shadow: inset 0 0 20px rgba(107,238,255,0.03);
+}
+
+/* ---------------------------------------------------
+   입력창 — command console 느낌
+--------------------------------------------------- */
+.command-bar.command-card::before,
+.caelus-command::before {
+  /* 텍스트만 갱신(색/배경은 아래 테마별 규칙이 담당). command-bar가
+     display:grid라서, 이 절대배치 가상 요소가 grid의 기본 정렬(stretch)
+     을 그대로 물려받아 라벨이 작은 탭이 아니라 command-bar 전체 크기로
+     늘어나 배경색이 거의 안 보이던 문제가 있었다 — 내용 크기만큼만
+     차지하도록 정렬을 명시적으로 뗀다. */
+  content: "COMMAND CONSOLE";
+  width: max-content;
+  height: max-content;
+  justify-self: start;
+  align-self: start;
+}
+/* 1차 패치에서 이 라벨(top:-8px, 테두리 위로 살짝 걸치는 "탭" 모양)이
+   command-bar의 overflow:hidden에 가려 실제로는 전혀 안 보이고 있었다
+   — 배경 그라디언트는 border-radius만으로도 이미 모서리에 맞춰 잘리므로
+   overflow:hidden이 없어도 다른 시각 효과는 그대로다. 라벨이 원래
+   의도대로 테두리 위에 살짝 걸치는 탭으로 보이도록 보이게 한다. */
+.command-bar.command-card,
+.caelus-command {
+  overflow: visible;
+}
+:root:not([data-theme="light"]) .command-bar.command-card {
+  background:
+    linear-gradient(90deg, rgba(4, 15, 26, 0.92), rgba(7, 23, 39, 0.78)),
+    rgba(3,12,22,0.72);
+}
+.command-input::placeholder {
+  color: var(--text-faint);
+}
+.command-submit {
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.command-submit:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 0 28px rgba(107,238,255,0.16);
+}
+.cancel-btn {
+  transition: border-color 160ms ease, background 160ms ease;
+}
+:root:not([data-theme="light"]) .cancel-btn:hover {
+  border-color: rgba(255,157,74,0.48);
+  background: rgba(255,157,74,0.11);
+}
+:root[data-theme="light"] .cancel-btn:hover {
+  border-color: rgba(204,110,34,0.5);
+  background: rgba(204,110,34,0.12);
+}
+
+/* ---------------------------------------------------
+   스크롤바 — 얇고, cyan→blue 그라디언트
+--------------------------------------------------- */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: rgba(127,127,127,0.04); }
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: linear-gradient(180deg, rgba(107,238,255,0.46), rgba(29,118,255,0.28));
+  background-clip: padding-box;
+}
+
+@media (max-width: 760px) {
+  .command-bar.command-card::before,
+  .caelus-command::before {
+    display: none;
+  }
+}

@@ -28,7 +28,7 @@
       <button type="button" class="os-menu-quick-btn" data-panel-target="panel-projects" title="대화 목록 / 프로젝트 목록" aria-label="대화 목록 / 프로젝트 목록">
         <span aria-hidden="true">☰</span>
       </button>
-      <div id="os-menu-list" class="os-menu-list" hidden>
+      <div id="os-menu-list" class="os-menu-list caelus-menu-panel" hidden>
         <div id="mode-toggle" class="mode-toggle" role="radiogroup" aria-label="응답 모드">
           <button type="button" class="mode-btn active" data-mode="chat" role="radio" aria-checked="true">일반 대화</button>
           <button type="button" class="mode-btn" data-mode="code" role="radio" aria-checked="false">코딩 작업</button>
@@ -105,7 +105,7 @@
            오른쪽으로 옮겨가며 채팅창이 된다(active, 가로 2열) — CSS만으로
            처리하며 styles.css의 body[data-ui-phase] 규칙 참고. -->
       <div class="chat-column">
-        <section class="conversation-shell" aria-label="대화">
+        <section class="conversation-shell caelus-conversation" aria-label="대화">
           <div id="thread-status" class="thread-status" hidden>
             <span id="thread-status-label" class="thread-status-label">📁 일반 대화</span>
             <!-- §L — 과거 스레드를 보고 있을 때만(재분류 대상이 명확할 때만)
@@ -126,7 +126,7 @@
           <div id="conversation" class="conversation"></div>
         </section>
 
-        <form id="command-form" class="command-bar command-card compact">
+        <form id="command-form" class="command-bar command-card caelus-command compact">
           <label class="sr-only" for="command-input">명령 입력</label>
           <input id="command-input" class="command-input" type="text"
                  placeholder="작업 내용을 입력하세요...  Enter 전송  /  Esc 취소" autocomplete="off" />
